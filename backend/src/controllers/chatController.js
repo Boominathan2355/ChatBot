@@ -62,74 +62,39 @@ exports.sendMessage = async (req, res) => {
             history.unshift({ role: 'system', content: settings.systemInstructions });
         }
 
-        console.log(`📊 Sending ${history.length} messages to Ollama (trimmed from ${chat.messages.length} total)`);
+        console.log(`📊 Sending ${history.length} messages to Ollama (trim med from ${chat.messages.length} total)`);
 
-        // Build prompt from history for /api/generate endpoint (backward compatible)
-        let prompt = '';
-
-        // Add system instructions
-        if (settings.systemInstructions) {
-            prompt += `System: ${settings.systemInstructions}\n\n`;
-        }
-
-        // Add conversation history
-        for (const msg of history) {
-            if (msg.role === 'user') {
-                prompt += `User: ${msg.content}\n`;
-            } else if (msg.role === 'assistant') {
-                prompt += `Assistant: ${msg.content}\n`;
-            }
-        }
-
-        prompt += 'Assistant: ';
-
-        // Stream response from Ollama using /api/generate (compatible with older versions)
+        // Use non-streaming mode for compatibility with ngrok
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
         const response = await axios({
             method: 'post',
-            url: `${ollamaUrl}/api/generate`,
+            url: `${ollamaUrl}/api/chat`,
+            headers: {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
+            },
             data: {
                 model,
-                prompt,
-                stream: true
-            },
-            responseType: 'stream'
-        });
-
-        let fullAssistantContent = '';
-
-        response.data.on('data', chunk => {
-            const lines = chunk.toString().split('\n');
-            for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                    const json = JSON.parse(line);
-                    if (json.response) {
-                        fullAssistantContent += json.response;
-                        res.write(`data: ${JSON.stringify({ content: json.response })}\n\n`);
-                    }
-                    if (json.done) {
-                        // Save assistant message to DB
-                        chat.messages.push({ role: 'assistant', content: fullAssistantContent });
-                        chat.lastMessageAt = Date.now();
-                        chat.save();
-                        res.write('data: [DONE]\n\n');
-                        res.end();
-                    }
-                } catch (e) {
-                    console.error('Error parsing Ollama stream:', e);
-                }
+                messages: history,
+                stream: false  // Changed to false for ngrok compatibility
             }
         });
 
-        response.data.on('error', error => {
-            console.error('Ollama stream error:', error);
-            res.write(`data: ${JSON.stringify({ error: 'Ollama streaming error' })}\n\n`);
-            res.end();
-        });
+        // Extract the assistant's response
+        const assistantMessage = response.data.message.content;
+
+        // Save to database
+        chat.messages.push({ role: 'assistant', content: assistantMessage });
+        chat.lastMessageAt = Date.now();
+        await chat.save();
+
+        // Send response to client in SSE format
+        res.write(`data: ${JSON.stringify({ content: assistantMessage })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
 
     } catch (error) {
         console.error('Send message error:', error);
