@@ -2,34 +2,26 @@ import React from 'react';
 import { Card, styled } from '@mui/material';
 import type { CardProps } from '@mui/material';
 
-const StyledGlassCard = styled(Card)(() => ({
-    background: 'rgba(16, 24, 48, 0.5)',
-    backdropFilter: 'blur(20px) saturate(180%)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+const StyledGlassCard = styled(Card)(({ theme }) => ({
+    background: theme.palette.mode === 'dark'
+        ? 'rgba(40, 40, 40, 0.6)'
+        : 'rgba(255, 255, 255, 0.7)',
+    backdropFilter: 'blur(20px) saturate(150%)',
+    border: theme.palette.mode === 'dark'
+        ? '1px solid rgba(255, 255, 255, 0.08)'
+        : '1px solid rgba(0, 0, 0, 0.08)',
+    borderRadius: 16,
+    transition: 'all 0.2s ease',
     position: 'relative',
     overflow: 'hidden',
 
-    '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: '-100%',
-        width: '100%',
-        height: '100%',
-        background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
-        transition: 'left 0.5s',
-    },
-
     '&:hover': {
-        transform: 'translateY(-4px)',
-        border: '1px solid rgba(187, 134, 252, 0.4)',
-        boxShadow: '0 16px 48px rgba(187, 134, 252, 0.2)',
-
-        '&::before': {
-            left: '100%',
-        },
+        border: theme.palette.mode === 'dark'
+            ? '1px solid rgba(255, 255, 255, 0.15)'
+            : '1px solid rgba(0, 0, 0, 0.15)',
+        boxShadow: theme.palette.mode === 'dark'
+            ? '0 8px 32px rgba(0, 0, 0, 0.3)'
+            : '0 8px 32px rgba(0, 0, 0, 0.08)',
     },
 }));
 

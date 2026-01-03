@@ -4,6 +4,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { GlassCard, GlassButton } from '../components';
+import ThemeToggle from '../components/ThemeToggle';
 
 const SettingsPage: React.FC = () => {
     const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
@@ -51,11 +52,14 @@ const SettingsPage: React.FC = () => {
     return (
         <Box sx={{ minHeight: '100vh', py: 4, position: 'relative', zIndex: 1 }}>
             <Container maxWidth="md">
-                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton onClick={() => navigate('/chat')}>
-                        <ArrowBackIcon />
-                    </IconButton>
-                    <Typography variant="h4" color="primary">Settings</Typography>
+                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <IconButton onClick={() => navigate('/chat')}>
+                            <ArrowBackIcon />
+                        </IconButton>
+                        <Typography variant="h4" color="primary">Settings</Typography>
+                    </Box>
+                    <ThemeToggle />
                 </Box>
 
                 <GlassCard sx={{ p: 4 }}>

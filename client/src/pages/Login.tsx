@@ -54,8 +54,8 @@ const Login: React.FC = () => {
                             height: 64,
                             mx: 'auto',
                             mb: 2,
-                            background: 'linear-gradient(135deg, #00e5ff 0%, #bb86fc 100%)',
-                            boxShadow: '0 8px 24px rgba(0, 229, 255, 0.4)'
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
                         }}
                     >
                         <LockOutlinedIcon sx={{ fontSize: 32 }} />
@@ -65,10 +65,9 @@ const Login: React.FC = () => {
                         variant="h4"
                         gutterBottom
                         sx={{
-                            background: 'linear-gradient(135deg, #00e5ff 0%, #bb86fc 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            fontWeight: 700,
+                            color: '#ffffff',
+                            fontWeight: 300,
+                            letterSpacing: '0.05em',
                             mb: 1
                         }}
                     >

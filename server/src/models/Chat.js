@@ -16,7 +16,9 @@ const chatSchema = new mongoose.Schema({
     isGrouped: { type: Boolean, default: false },
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
     messages: [messageSchema],
-    lastMessageAt: { type: Date, default: Date.now }
+    lastMessageAt: { type: Date, default: Date.now },
+    isShared: { type: Boolean, default: false },
+    shareToken: { type: String, unique: true, sparse: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Chat', chatSchema);

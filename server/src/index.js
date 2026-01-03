@@ -28,6 +28,7 @@ app.use('/api/settings', require('./routes/settingsRoutes'));
 app.use('/api/chats', require('./routes/chatRoutes'));
 app.use('/api/docs', require('./routes/docRoutes'));
 app.use('/api/groups', require('./routes/groupRoutes'));
+app.use('/api/search', require('./routes/searchRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
