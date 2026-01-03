@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Paper, Typography, TextField, Button, IconButton } from '@mui/material';
+import { Box, Container, Typography, TextField, IconButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { GlassCard, GlassButton } from '../components';
 
 const SettingsPage: React.FC = () => {
     const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
@@ -48,7 +49,7 @@ const SettingsPage: React.FC = () => {
     };
 
     return (
-        <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: 4 }}>
+        <Box sx={{ minHeight: '100vh', py: 4, position: 'relative', zIndex: 1 }}>
             <Container maxWidth="md">
                 <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
                     <IconButton onClick={() => navigate('/chat')}>
@@ -57,7 +58,7 @@ const SettingsPage: React.FC = () => {
                     <Typography variant="h4" color="primary">Settings</Typography>
                 </Box>
 
-                <Paper sx={{ p: 4 }}>
+                <GlassCard sx={{ p: 4 }}>
                     <Typography variant="h6" gutterBottom>Ollama Configuration</Typography>
                     <TextField
                         fullWidth
@@ -75,9 +76,9 @@ const SettingsPage: React.FC = () => {
                         margin="normal"
                         helperText="e.g., llama3, mistral, codellama"
                     />
-                    <Button variant="outlined" onClick={testConnection} sx={{ mt: 1, mb: 3 }}>
+                    <GlassButton variant="outlined" onClick={testConnection} sx={{ mt: 1, mb: 3 }}>
                         Test Connection
-                    </Button>
+                    </GlassButton>
 
                     <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>System Instructions</Typography>
                     <TextField
@@ -91,7 +92,7 @@ const SettingsPage: React.FC = () => {
                         helperText="Define Jarvis's personality and behavior"
                     />
 
-                    <Button
+                    <GlassButton
                         variant="contained"
                         size="large"
                         onClick={handleSave}
@@ -99,8 +100,8 @@ const SettingsPage: React.FC = () => {
                         fullWidth
                     >
                         Save Settings
-                    </Button>
-                </Paper>
+                    </GlassButton>
+                </GlassCard>
             </Container>
         </Box>
     );

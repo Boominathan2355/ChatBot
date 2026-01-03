@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Paper, Typography, Button, List, ListItem, ListItemButton, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton } from '@mui/material';
+import { Box, Container, Typography, List, ListItem, ListItemButton, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import GroupIcon from '@mui/icons-material/Group';
 import api from '../services/api';
+import { GlassCard, GlassButton } from '../components';
 
 const GroupsPage: React.FC = () => {
     const [groups, setGroups] = useState<any[]>([]);
@@ -38,7 +39,7 @@ const GroupsPage: React.FC = () => {
     };
 
     return (
-        <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: 4 }}>
+        <Box sx={{ minHeight: '100vh', py: 4, position: 'relative', zIndex: 1 }}>
             <Container maxWidth="md">
                 <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -47,12 +48,12 @@ const GroupsPage: React.FC = () => {
                         </IconButton>
                         <Typography variant="h4" color="primary">Groups</Typography>
                     </Box>
-                    <Button variant="contained" onClick={() => setOpenDialog(true)}>
+                    <GlassButton variant="contained" onClick={() => setOpenDialog(true)}>
                         + New Group
-                    </Button>
+                    </GlassButton>
                 </Box>
 
-                <Paper sx={{ p: 3 }}>
+                <GlassCard sx={{ p: 3 }}>
                     {groups.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 4 }}>
                             <GroupIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
@@ -78,7 +79,7 @@ const GroupsPage: React.FC = () => {
                             ))}
                         </List>
                     )}
-                </Paper>
+                </GlassCard>
             </Container>
 
             <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
@@ -102,10 +103,10 @@ const GroupsPage: React.FC = () => {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-                    <Button onClick={handleCreateGroup} variant="contained" disabled={!newGroupName.trim()}>
+                    <GlassButton onClick={() => setOpenDialog(false)}>Cancel</GlassButton>
+                    <GlassButton onClick={handleCreateGroup} variant="contained" disabled={!newGroupName.trim()}>
                         Create
-                    </Button>
+                    </GlassButton>
                 </DialogActions>
             </Dialog>
         </Box>

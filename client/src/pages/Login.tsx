@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Box, TextField, Button, Typography, Paper, Container } from '@mui/material';
+import { Box, TextField, Typography, Container, Avatar } from '@mui/material';
 import { useAuthStore } from '../store/useAuthStore';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { GlassCard, GlassButton } from '../components';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -26,12 +28,54 @@ const Login: React.FC = () => {
 
     return (
         <Container maxWidth="xs">
-            <Box sx={{ mt: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Paper sx={{ p: 4, width: '100%', textAlign: 'center' }}>
-                    <Typography variant="h4" gutterBottom color="primary" sx={{ fontWeight: 700 }}>
+            <Box
+                sx={{
+                    minHeight: '100vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    zIndex: 1
+                }}
+            >
+                <GlassCard
+                    sx={{
+                        p: 4,
+                        width: '100%',
+                        textAlign: 'center',
+                        animation: 'float 6s ease-in-out infinite'
+                    }}
+                    className="animate-pulse-glow"
+                >
+                    <Avatar
+                        sx={{
+                            width: 64,
+                            height: 64,
+                            mx: 'auto',
+                            mb: 2,
+                            background: 'linear-gradient(135deg, #00e5ff 0%, #bb86fc 100%)',
+                            boxShadow: '0 8px 24px rgba(0, 229, 255, 0.4)'
+                        }}
+                    >
+                        <LockOutlinedIcon sx={{ fontSize: 32 }} />
+                    </Avatar>
+
+                    <Typography
+                        variant="h4"
+                        gutterBottom
+                        sx={{
+                            background: 'linear-gradient(135deg, #00e5ff 0%, #bb86fc 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            fontWeight: 700,
+                            mb: 1
+                        }}
+                    >
                         Jarvis AI
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 4, opacity: 0.8 }}>
                         {isRegister ? 'Create an account to get started' : 'Sign in to your account'}
                     </Typography>
 
@@ -43,6 +87,7 @@ const Login: React.FC = () => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
+                            sx={{ mb: 2 }}
                         />
                         <TextField
                             fullWidth
@@ -52,25 +97,26 @@ const Login: React.FC = () => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
+                            sx={{ mb: 3 }}
                         />
-                        <Button
+                        <GlassButton
                             type="submit"
                             fullWidth
                             variant="contained"
                             size="large"
-                            sx={{ mt: 3, mb: 2 }}
+                            sx={{ mb: 2 }}
                         >
                             {isRegister ? 'Register' : 'Sign In'}
-                        </Button>
-                        <Button
+                        </GlassButton>
+                        <GlassButton
                             fullWidth
                             variant="text"
                             onClick={() => setIsRegister(!isRegister)}
                         >
                             {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register"}
-                        </Button>
+                        </GlassButton>
                     </form>
-                </Paper>
+                </GlassCard>
             </Box>
         </Container>
     );
