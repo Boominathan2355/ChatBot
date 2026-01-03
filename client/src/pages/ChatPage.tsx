@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Drawer, List, ListItemButton, ListItemText, TextField, IconButton, Typography, Avatar, Tooltip, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, ListItemIcon, Divider } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import StopCircleIcon from '@mui/icons-material/StopCircle';
 import AddIcon from '@mui/icons-material/Add';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -86,6 +87,7 @@ const ChatPage: React.FC = () => {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [targetChatId, setTargetChatId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     // Chat Management State
     const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; chatId: string } | null>(null);
@@ -366,12 +368,16 @@ const ChatPage: React.FC = () => {
 
                 // Determine if it's a doc or an image
                 if (currentFile.type.startsWith('image/')) {
-                    // Simulation for images as before
-                    await new Promise(resolve => setTimeout(resolve, 800));
+                    // Convert image to base64 for vision models
+                    const base64 = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.readAsDataURL(currentFile);
+                    });
                     imageObject = {
-                        url: "https://picsum.photos/400/300?random=" + Math.random(),
+                        url: base64, // Actual image data
                         id: `img_${Date.now()}`,
-                        width: 400,
+                        width: 400, // Optional: Could get actual dims if needed
                         height: 300,
                         mimeType: currentFile.type || 'image/jpeg'
                     };
@@ -391,6 +397,10 @@ const ChatPage: React.FC = () => {
             const endpoint = isGroupChat(currentChat)
                 ? `/api/chats/${currentChatId}/group-message`
                 : `/api/chats/${currentChatId}/send`;
+            
+            // Setup AbortController for stopping generation
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -398,6 +408,7 @@ const ChatPage: React.FC = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
+                signal: controller.signal,
                 body: JSON.stringify({
                     content: messageContent || (imageObject ? 'Sent an image' : (fileObject ? `Uploaded ${currentFile?.name}` : '')),
                     image: imageObject,
@@ -463,6 +474,10 @@ const ChatPage: React.FC = () => {
                 }
             }
         } catch (e: any) {
+            if (e.name === 'AbortError') {
+                console.log('🛑 Generation stopped by user');
+                return;
+            }
             console.error(e);
             // Remove the empty assistant message if it failed immediately
             setMessages(prev => {
@@ -480,6 +495,16 @@ const ChatPage: React.FC = () => {
             });
         } finally {
             setIsLoading(false);
+            abortControllerRef.current = null;
+        }
+    };
+
+    const handleStop = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+            setIsLoading(false);
+            setIsSearching(false);
         }
     };
 
@@ -956,17 +981,23 @@ const ChatPage: React.FC = () => {
                                 InputProps={{ disableUnderline: true, sx: { fontSize: 14, py: 0.5 } }}
                             />
                             <IconButton
-                                onClick={handleSend}
-                                disabled={(!input.trim() && !attachedFile) || isLoading || isUploading}
+                                onClick={isLoading ? handleStop : handleSend}
+                                disabled={(!input.trim() && !attachedFile && !isLoading) || isUploading}
                                 size="small"
                                 sx={{
-                                    bgcolor: (input.trim() || attachedFile) ? (resolvedMode === 'dark' ? '#fff' : '#0a0a0a') : 'transparent',
-                                    color: (input.trim() || attachedFile) ? (resolvedMode === 'dark' ? '#0a0a0a' : '#fff') : 'inherit',
-                                    '&:hover': { bgcolor: (input.trim() || attachedFile) ? (resolvedMode === 'dark' ? '#eee' : '#222') : 'transparent' },
+                                    bgcolor: (input.trim() || attachedFile || isLoading) ? (resolvedMode === 'dark' ? '#fff' : '#0a0a0a') : 'transparent',
+                                    color: (input.trim() || attachedFile || isLoading) ? (resolvedMode === 'dark' ? '#0a0a0a' : '#fff') : 'inherit',
+                                    '&:hover': { bgcolor: (input.trim() || attachedFile || isLoading) ? (resolvedMode === 'dark' ? '#eee' : '#222') : 'transparent' },
                                     '&.Mui-disabled': { bgcolor: 'transparent' }
                                 }}
                             >
-                                {isUploading ? <CircularProgress size={18} color="inherit" /> : <SendIcon sx={{ fontSize: 18 }} />}
+                                {isUploading ? (
+                                    <CircularProgress size={18} color="inherit" />
+                                ) : isLoading ? (
+                                    <StopCircleIcon sx={{ fontSize: 20 }} />
+                                ) : (
+                                    <SendIcon sx={{ fontSize: 18 }} />
+                                )}
                             </IconButton>
                         </Box>
                         <Typography sx={{ fontSize: 11, textAlign: 'center', mt: 1, opacity: 0.35 }}>

@@ -92,7 +92,7 @@ exports.getChatMessages = async (req, res) => {
 };
 
 exports.sendMessage = async (req, res) => {
-    const { content, webSearch } = req.body;
+    const { content, webSearch, image, documentId } = req.body;
     const chatId = req.params.id;
 
     try {
@@ -128,7 +128,7 @@ exports.sendMessage = async (req, res) => {
         }
 
         // Add user message
-        chat.messages.push({ role: 'user', content });
+        chat.messages.push({ role: 'user', content, image });
         await chat.save();
 
         // Prepare history for Ollama with sliding window
@@ -148,10 +148,20 @@ exports.sendMessage = async (req, res) => {
         // Get last N messages
         const recentMessages = chat.messages.slice(-HISTORY_WINDOW_SIZE);
 
-        const history = recentMessages.map(m => ({
-            role: m.role,
-            content: m.content
-        }));
+        const history = recentMessages.map(m => {
+            const msgObj = {
+                role: m.role,
+                content: m.content
+            };
+            if (m.image && m.image.url) {
+                // Extract raw base64 from data URL if present
+                const base64 = m.image.url.includes(',')
+                    ? m.image.url.split(',')[1]
+                    : m.image.url;
+                msgObj.images = [base64];
+            }
+            return msgObj;
+        });
 
         // Inject system instructions as first message
         if (settings.systemInstructions) {
@@ -282,10 +292,9 @@ exports.bulkDelete = async (req, res) => {
 
 // Send message in a group chat
 exports.sendGroupMessage = async (req, res) => {
-    const { content, webSearch } = req.body;
-    const chatId = req.params.id;
-
     try {
+        const { chatId } = req.params;
+        const { content, webSearch, image, documentId } = req.body;
         const chat = await Chat.findOne({ _id: chatId, isGrouped: true }).populate('groupId');
         if (!chat) return res.status(404).json({ message: 'Group chat not found' });
 
@@ -296,17 +305,18 @@ exports.sendGroupMessage = async (req, res) => {
 
         if (!isMember) return res.status(403).json({ message: 'Not a group member' });
 
-        // Add message with sender info
-        const message = {
+        // Create user message
+        const userMessage = {
             role: 'user',
             content,
+            image,
             metadata: {
                 senderId: req.user.id,
                 senderName: req.user.username || req.user.email
             }
         };
 
-        chat.messages.push(message);
+        chat.messages.push(userMessage);
         chat.lastMessageAt = Date.now();
         await chat.save();
 
@@ -314,6 +324,8 @@ exports.sendGroupMessage = async (req, res) => {
         const settings = await UserSettings.findOne({ userId: req.user.id }) || {};
         const ollamaUrl = settings.ollamaBaseUrl || 'http://localhost:11434';
         const model = settings.defaultModel || 'mistral';
+        const HISTORY_WINDOW_SIZE = settings.historyWindowSize || 20;
+
 
         // Perform Document RAG if applicable
         let docContext = '';
@@ -344,10 +356,19 @@ exports.sendGroupMessage = async (req, res) => {
         }
 
         // Prepare context for AI (last 20 messages)
-        const recentMessages = chat.messages.slice(-20).map(m => ({
-            role: m.role,
-            content: m.content
-        }));
+        const recentMessages = chat.messages.slice(-HISTORY_WINDOW_SIZE).map(m => {
+            const msgObj = {
+                role: m.role,
+                content: m.content
+            };
+            if (m.image && m.image.url) {
+                const base64 = m.image.url.includes(',')
+                    ? m.image.url.split(',')[1]
+                    : m.image.url;
+                msgObj.images = [base64];
+            }
+            return msgObj;
+        });
 
         if (settings.systemInstructions) {
             recentMessages.unshift({ role: 'system', content: settings.systemInstructions });
