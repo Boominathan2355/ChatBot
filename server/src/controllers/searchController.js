@@ -1,7 +1,4 @@
-const axios = require('axios');
-
-// DuckDuckGo Instant Answer API - Free, no key required
-const DUCKDUCKGO_API = 'https://api.duckduckgo.com/';
+const searchService = require('../services/searchService');
 
 exports.webSearch = async (req, res) => {
     const { query } = req.body;
@@ -11,18 +8,17 @@ exports.webSearch = async (req, res) => {
     }
 
     try {
-        const response = await axios.get(DUCKDUCKGO_API, {
-            params: {
-                q: query,
-                format: 'json',
-                no_html: 1,
-                skip_disambig: 1
-            }
-        });
+        // 1. Generate focused query
+        const focusedQuery = await searchService.generateSearchQuery(query);
 
-        const data = response.data;
+        // 2. Perform search
+        const data = await searchService.performSearch(focusedQuery);
 
-        // Extract relevant search results
+        if (!data) {
+            return res.status(500).json({ message: 'Search execution failed' });
+        }
+
+        // 3. Extract and map relevant results (Maintaining legacy structure for compatibility)
         const results = {
             query,
             abstract: data.Abstract || null,
@@ -39,32 +35,14 @@ exports.webSearch = async (req, res) => {
                     text: topic.Text,
                     url: topic.FirstURL
                 })),
-            infobox: data.Infobox || null
+            infobox: data.Infobox || null,
+            // Use the service to generate the context summary for AI RAG support
+            contextSummary: searchService.processResults(data) || 'No direct results found. The AI will use its knowledge to answer.'
         };
-
-        // Create a summary for AI context
-        let contextSummary = '';
-        if (results.abstract) {
-            contextSummary += `${results.abstract}\n\n`;
-        }
-        if (results.answer) {
-            contextSummary += `Answer: ${results.answer}\n\n`;
-        }
-        if (results.definition) {
-            contextSummary += `Definition: ${results.definition}\n\n`;
-        }
-        if (results.relatedTopics.length > 0) {
-            contextSummary += 'Related Information:\n';
-            results.relatedTopics.forEach(topic => {
-                contextSummary += `- ${topic.text}\n`;
-            });
-        }
-
-        results.contextSummary = contextSummary.trim() || 'No direct results found. The AI will use its knowledge to answer.';
 
         res.json(results);
     } catch (error) {
-        console.error('Web search error:', error.message);
+        console.error('Web search controller error:', error.message);
         res.status(500).json({
             message: 'Search failed',
             error: error.message

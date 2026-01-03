@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Box, Typography, Avatar, Container, CircularProgress } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
@@ -7,7 +7,6 @@ import { MessageRenderer } from '../components';
 import { useThemeMode } from '../context/ThemeContext';
 import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@mui/material';
 
 const SharedChatPage: React.FC = () => {
@@ -18,17 +17,27 @@ const SharedChatPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const { token: authToken } = useAuthStore();
     const navigate = useNavigate();
+    const location = useLocation();
+    const searchParams = new URLSearchParams(location.search);
+    const isInvite = searchParams.get('invite') === 'true';
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    const handleContinueChat = async () => {
+    const handleAction = async () => {
         if (!authToken) {
             navigate('/login');
             return;
         }
 
         try {
-            await api.post(`/chats/shared/${token}/import`);
-            navigate('/chat');
+            if (isInvite) {
+                // Join flow
+                const { data } = await api.post(`/chats/shared/${token}/join`);
+                navigate('/chat', { state: { chatId: data._id } });
+            } else {
+                // Import/Copy flow
+                await api.post(`/chats/shared/${token}/import`);
+                navigate('/chat');
+            }
         } catch (err) {
             console.error(err);
         }
@@ -94,7 +103,16 @@ const SharedChatPage: React.FC = () => {
                         </Box>
 
                         {chat.messages.map((msg: any, i: number) => (
-                            <Box key={i} sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'flex-start' }}>
+                            <Box
+                                key={i}
+                                sx={{
+                                    display: 'flex',
+                                    gap: 2,
+                                    mb: 3,
+                                    alignItems: 'flex-start',
+                                    flexDirection: msg.role === 'user' ? 'row-reverse' : 'row'
+                                }}
+                            >
                                 <Avatar
                                     sx={{
                                         width: 28,
@@ -108,7 +126,7 @@ const SharedChatPage: React.FC = () => {
                                 >
                                     {msg.role === 'user' ? <PersonIcon sx={{ fontSize: 16 }} /> : <SmartToyIcon sx={{ fontSize: 16 }} />}
                                 </Avatar>
-                                <Box sx={{ flex: 1, pt: 0.25 }}>
+                                <Box sx={{ flex: 1, pt: 0.25, display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                                     <Typography sx={{ fontWeight: 600, fontSize: 13, mb: 0.5, opacity: 0.6 }}>
                                         {msg.role === 'user' ? 'User' : 'Jarvis'}
                                     </Typography>
@@ -117,12 +135,12 @@ const SharedChatPage: React.FC = () => {
                             </Box>
                         ))}
 
-                        {/* Continue Chat Button - Bottom */}
+                        {/* Action Button - Bottom */}
                         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}>
                             <Button
                                 variant="contained"
-                                onClick={handleContinueChat}
-                                startIcon={<SmartToyIcon />}
+                                onClick={handleAction}
+                                startIcon={isInvite ? <PersonIcon /> : <SmartToyIcon />}
                                 sx={{
                                     textTransform: 'none',
                                     borderRadius: 3,
@@ -134,7 +152,7 @@ const SharedChatPage: React.FC = () => {
                                     '&:hover': { bgcolor: mode === 'dark' ? '#e0e0e0' : '#333' }
                                 }}
                             >
-                                Continue with this chat
+                                {isInvite ? 'Join Chat' : 'Import Copy'}
                             </Button>
                         </Box>
                     </Box>

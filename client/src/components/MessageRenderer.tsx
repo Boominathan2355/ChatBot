@@ -81,7 +81,31 @@ const StyledLink = styled(Link)(({ theme }) => ({
     },
 }));
 
+const Citation = styled('span')(({ theme }) => ({
+    verticalAlign: 'super',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    color: theme.palette.primary.main,
+    background: 'rgba(0, 229, 255, 0.1)',
+    padding: '0 4px',
+    borderRadius: '4px',
+    marginLeft: '2px',
+    cursor: 'default',
+    userSelect: 'none',
+}));
+
 const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
+    // Process content to wrap citations [1], [2], etc.
+    const processCitations = (text: string) => {
+        const parts = text.split(/(\[\d+\])/g);
+        return parts.map((part, i) => {
+            if (part.match(/\[\d+\]/)) {
+                return <Citation key={i}>{part}</Citation>;
+            }
+            return part;
+        });
+    };
+
     return (
         <MarkdownContainer>
             <ReactMarkdown
@@ -108,7 +132,14 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
 
                     // Paragraphs
                     p({ children }) {
-                        return <Typography component="p" variant="body1">{children}</Typography>;
+                        // If children is just text, process citations
+                        const processedChildren = React.Children.map(children, child => {
+                            if (typeof child === 'string') {
+                                return processCitations(child);
+                            }
+                            return child;
+                        });
+                        return <Typography component="p" variant="body1">{processedChildren}</Typography>;
                     },
 
                     // Links
@@ -128,18 +159,24 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
                         return <Box component="ol">{children}</Box>;
                     },
                     li({ children }) {
-                        return <Typography component="li" variant="body1">{children}</Typography>;
+                        const processedChildren = React.Children.map(children, child => {
+                            if (typeof child === 'string') {
+                                return processCitations(child);
+                            }
+                            return child;
+                        });
+                        return <Typography component="li" variant="body1">{processedChildren}</Typography>;
                     },
 
                     // Headings
                     h1({ children }) {
-                        return <Typography variant="h5" component="h1">{children}</Typography>;
+                        return <Typography variant="h5" component="h1" sx={{ mt: 2, mb: 1 }}>{children}</Typography>;
                     },
                     h2({ children }) {
-                        return <Typography variant="h6" component="h2">{children}</Typography>;
+                        return <Typography variant="h6" component="h2" sx={{ mt: 2, mb: 1 }}>{children}</Typography>;
                     },
                     h3({ children }) {
-                        return <Typography variant="subtitle1" component="h3" fontWeight={600}>{children}</Typography>;
+                        return <Typography variant="subtitle1" component="h3" fontWeight={600} sx={{ mt: 1.5, mb: 0.5 }}>{children}</Typography>;
                     },
 
                     // Blockquote
@@ -149,12 +186,12 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
 
                     // Strong/Bold
                     strong({ children }) {
-                        return <Typography component="strong" fontWeight={700}>{children}</Typography>;
+                        return <Typography component="strong" fontWeight={700} sx={{ display: 'inline' }}>{children}</Typography>;
                     },
 
                     // Emphasis/Italic
                     em({ children }) {
-                        return <Typography component="em" fontStyle="italic">{children}</Typography>;
+                        return <Typography component="em" fontStyle="italic" sx={{ display: 'inline' }}>{children}</Typography>;
                     },
                 }}
             >

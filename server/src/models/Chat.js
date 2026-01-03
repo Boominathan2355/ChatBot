@@ -7,6 +7,14 @@ const messageSchema = new mongoose.Schema({
         model: String,
         tokenCount: Number,
         documentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Document' }
+    },
+    image: {
+        url: String,
+        id: String,
+        width: Number,
+        height: Number,
+        mimeType: String,
+        permissions: { type: Map, of: String }
     }
 }, { timestamps: true });
 
@@ -18,7 +26,9 @@ const chatSchema = new mongoose.Schema({
     messages: [messageSchema],
     lastMessageAt: { type: Date, default: Date.now },
     isShared: { type: Boolean, default: false },
-    shareToken: { type: String, unique: true, sparse: true }
+    shareToken: { type: String, unique: true, sparse: true },
+    isPinned: { type: Boolean, default: false },
+    folder: { type: String, default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Chat', chatSchema);
