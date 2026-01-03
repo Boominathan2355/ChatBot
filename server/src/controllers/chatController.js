@@ -3,6 +3,8 @@ const Group = require('../models/Group');
 const UserSettings = require('../models/UserSettings');
 const axios = require('axios');
 const searchService = require('../services/searchService');
+const vectorService = require('../services/vectorService');
+const DocumentChunk = require('../models/DocumentChunk');
 
 exports.createChat = async (req, res) => {
     try {
@@ -132,6 +134,17 @@ exports.sendMessage = async (req, res) => {
         // Prepare history for Ollama with sliding window
         const HISTORY_WINDOW_SIZE = settings.historyWindowSize || 20;
 
+        // Perform Document RAG if applicable
+        let docContext = '';
+        try {
+            const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
+            if (relevantChunks.length > 0) {
+                docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
+            }
+        } catch (docError) {
+            console.error('❌ Document RAG failed:', docError.message);
+        }
+
         // Get last N messages
         const recentMessages = chat.messages.slice(-HISTORY_WINDOW_SIZE);
 
@@ -143,6 +156,14 @@ exports.sendMessage = async (req, res) => {
         // Inject system instructions as first message
         if (settings.systemInstructions) {
             history.unshift({ role: 'system', content: settings.systemInstructions });
+        }
+
+        // Inject Document Context (Higher priority than web search if specific doc mentioned)
+        if (docContext) {
+            history.push({
+                role: 'system',
+                content: `[Extracted Document Knowledge]\n${docContext}\n\nINSTRUCTION: The user is asking about specific documents they uploaded. Use the \"Extracted Document Knowledge\" above to provide a factually accurate answer. Strictly ground your response in these document sources. If the information is not present in the document, say you don't know based on the provided library. Use citations like [Doc 1], [Doc 2].`
+            });
         }
 
         // Inject web search results as context (RAG)
@@ -294,6 +315,19 @@ exports.sendGroupMessage = async (req, res) => {
         const ollamaUrl = settings.ollamaBaseUrl || 'http://localhost:11434';
         const model = settings.defaultModel || 'mistral';
 
+        // Perform Document RAG if applicable
+        let docContext = '';
+        try {
+            // Note: In groups, we could potentially search documents shared with the group
+            // For now, we search the documents of the user who is sending the message
+            const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
+            if (relevantChunks.length > 0) {
+                docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
+            }
+        } catch (docError) {
+            console.error('❌ Document RAG failed in Group:', docError.message);
+        }
+
         // Perform RAG web search if enabled
         let searchContext = '';
         if (webSearch) {
@@ -317,6 +351,14 @@ exports.sendGroupMessage = async (req, res) => {
 
         if (settings.systemInstructions) {
             recentMessages.unshift({ role: 'system', content: settings.systemInstructions });
+        }
+
+        // Inject Document Context (Higher priority than web search)
+        if (docContext) {
+            recentMessages.push({
+                role: 'system',
+                content: `[Extracted Document Knowledge]\n${docContext}\n\nINSTRUCTION: The user is asking about specific documents they uploaded. Use the \"Extracted Document Knowledge\" above to provide a factually accurate answer in this GROUP chat. Strictly ground your response in these document sources. If the information is not present, say it is not in the library. Use citations like [Doc 1].`
+            });
         }
 
         // Inject web search results as context (RAG)

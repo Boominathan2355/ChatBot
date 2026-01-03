@@ -95,12 +95,23 @@ const Citation = styled('span')(({ theme }) => ({
 }));
 
 const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
-    // Process content to wrap citations [1], [2], etc.
+    // Process content to wrap citations [1], [2], [Doc 1], etc.
     const processCitations = (text: string) => {
-        const parts = text.split(/(\[\d+\])/g);
+        // Broad regex to catch [1], [Doc 1], [Source 1]
+        const parts = text.split(/(\[Doc \d+\]|\[\d+\])/g);
         return parts.map((part, i) => {
-            if (part.match(/\[\d+\]/)) {
-                return <Citation key={i}>{part}</Citation>;
+            if (part.match(/^\[(Doc\s+)?\d+\]$/)) {
+                return (
+                    <Citation
+                        key={i}
+                        sx={{
+                            background: part.includes('Doc') ? 'rgba(0, 255, 127, 0.15)' : 'rgba(0, 229, 255, 0.1)',
+                            border: `1px solid ${part.includes('Doc') ? 'rgba(0, 255, 127, 0.3)' : 'rgba(0, 229, 255, 0.3)'}`
+                        }}
+                    >
+                        {part}
+                    </Citation>
+                );
             }
             return part;
         });

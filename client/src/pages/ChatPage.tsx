@@ -13,6 +13,7 @@ import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { useAuthStore } from '../store/useAuthStore';
 import api from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
+import CloseIcon from '@mui/icons-material/Close';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
@@ -73,6 +74,9 @@ const ChatPage: React.FC = () => {
     const [webSearchEnabled, setWebSearchEnabled] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [attachedFile, setAttachedFile] = useState<File | null>(null);
+    const [attachedFileUrl, setAttachedFileUrl] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
     // Sidebar always open
     const [shareDialogOpen, setShareDialogOpen] = useState(false);
     const [shareUrl, setShareUrl] = useState('');
@@ -80,16 +84,13 @@ const ChatPage: React.FC = () => {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [settingsTab, setSettingsTab] = useState('general');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [targetChatId, setTargetChatId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [selectedImage, setSelectedImage] = useState<File | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
 
     // Chat Management State
     const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; chatId: string } | null>(null);
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
     const [newTitle, setNewTitle] = useState('');
-    const [targetChatId, setTargetChatId] = useState<string | null>(null);
-
     // Folders State
     const [openFolders, setOpenFolders] = useState<{ [key: string]: boolean }>({
         'Projects': true,
@@ -299,51 +300,88 @@ const ChatPage: React.FC = () => {
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            // Basic validation
-            if (!file.type.startsWith('image/')) {
-                alert('Please upload an image file');
-                return;
+            processFile(file);
+        }
+    };
+
+    const processFile = (file: File) => {
+        const isImage = file.type.startsWith('image/');
+        const isDoc = file.name.endsWith('.docx') || file.name.endsWith('.pdf') || file.name.endsWith('.txt');
+
+        if (!isImage && !isDoc) {
+            alert('Please upload an image or a document (PDF, DOCX, TXT)');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            alert('File size too large (max 10MB)');
+            return;
+        }
+
+        setAttachedFile(file);
+        if (isImage) {
+            setAttachedFileUrl(URL.createObjectURL(file));
+        } else {
+            setAttachedFileUrl(null); // No preview for docs yet
+        }
+    };
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const file = items[i].getAsFile();
+                if (file) processFile(file);
             }
-            if (file.size > 5 * 1024 * 1024) { // 5MB limit
-                alert('File size too large (max 5MB)');
-                return;
-            }
-            setSelectedImage(file);
         }
     };
 
     const handleSend = async () => {
-        if ((!input.trim() && !selectedImage) || !currentChatId || isLoading || isUploading) return;
+        if ((!input.trim() && !attachedFile) || !currentChatId || isLoading || isUploading) return;
 
         let messageContent = input;
         let imageObject = null;
+        let fileObject = null;
 
         // Optimistic update
         setMessages(prev => [...prev, {
             role: 'user',
             content: messageContent,
-            image: selectedImage ? { url: URL.createObjectURL(selectedImage), id: 'temp' } : undefined
+            image: (attachedFile && attachedFile.type.startsWith('image/')) ? { url: attachedFileUrl || '', id: 'temp' } : undefined
         }]);
 
         setInput('');
-        setSelectedImage(null);
+        const currentFile = attachedFile;
+        setAttachedFile(null);
+        setAttachedFileUrl(null);
         setIsLoading(true);
 
         try {
-            // Handle Image Upload First (Simulation)
-            if (selectedImage) {
+            // Handle Attachment Upload
+            if (currentFile) {
                 setIsUploading(true);
-                // Simulate upload delay
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                const formData = new FormData();
+                formData.append('file', currentFile);
+                formData.append('chatId', currentChatId);
 
-                // Mock response from object storage
-                imageObject = {
-                    url: "https://picsum.photos/400/300?random=" + Math.random(), // Placehold image
-                    id: `img_${Date.now()}`,
-                    width: 400,
-                    height: 300,
-                    mimeType: selectedImage.type || 'image/jpeg'
-                };
+                // Determine if it's a doc or an image
+                if (currentFile.type.startsWith('image/')) {
+                    // Simulation for images as before
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    imageObject = {
+                        url: "https://picsum.photos/400/300?random=" + Math.random(),
+                        id: `img_${Date.now()}`,
+                        width: 400,
+                        height: 300,
+                        mimeType: currentFile.type || 'image/jpeg'
+                    };
+                } else {
+                    // Real document upload for RAG
+                    const { data } = await api.post('/docs/upload', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    fileObject = data;
+                }
                 setIsUploading(false);
             }
 
@@ -361,9 +399,10 @@ const ChatPage: React.FC = () => {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
                 body: JSON.stringify({
-                    content: messageContent || (imageObject ? 'Sent an image' : ''), // Fallback text if just image
+                    content: messageContent || (imageObject ? 'Sent an image' : (fileObject ? `Uploaded ${currentFile?.name}` : '')),
                     image: imageObject,
-                    webSearch: webSearchEnabled
+                    webSearch: webSearchEnabled,
+                    documentId: fileObject?._id
                 })
             });
 
@@ -812,6 +851,55 @@ const ChatPage: React.FC = () => {
                 {/* Input */}
                 <Box sx={{ p: 2 }}>
                     <Box sx={{ maxWidth: 768, mx: 'auto' }}>
+                        {/* Attachment Preview */}
+                        {attachedFile && (
+                            <Box sx={{
+                                mb: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                                p: 1,
+                                borderRadius: 1.5,
+                                border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                                width: 'fit-content'
+                            }}>
+                                {attachedFileUrl ? (
+                                    <Box sx={{ position: 'relative' }}>
+                                        <img
+                                            src={attachedFileUrl}
+                                            alt="preview"
+                                            style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover' }}
+                                        />
+                                    </Box>
+                                ) : (
+                                    <Box sx={{
+                                        width: 40,
+                                        height: 40,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                                        borderRadius: 1
+                                    }}>
+                                        <AttachFileIcon sx={{ fontSize: 20 }} />
+                                    </Box>
+                                )}
+                                <Box sx={{ mr: 1 }}>
+                                    <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{attachedFile.name}</Typography>
+                                    <Typography sx={{ fontSize: 11, opacity: 0.5 }}>
+                                        {(attachedFile.size / 1024).toFixed(0)} KB • {attachedFile.type.split('/')[1] || 'document'}
+                                    </Typography>
+                                </Box>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => { setAttachedFile(null); setAttachedFileUrl(null); }}
+                                    sx={{ ml: 'auto' }}
+                                >
+                                    <CloseIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                            </Box>
+                        )}
                         <Box
                             sx={{
                                 display: 'flex',
@@ -842,14 +930,14 @@ const ChatPage: React.FC = () => {
                                 type="file"
                                 ref={fileInputRef}
                                 style={{ display: 'none' }}
-                                accept="image/*"
+                                accept="image/*,.pdf,.docx,.txt"
                                 onChange={handleFileSelect}
                             />
-                            <Tooltip title="Attach Image">
+                            <Tooltip title="Attach File">
                                 <IconButton
                                     onClick={() => fileInputRef.current?.click()}
                                     size="small"
-                                    color={selectedImage ? 'primary' : 'default'}
+                                    color={attachedFile ? 'primary' : 'default'}
                                 >
                                     <AttachFileIcon sx={{ fontSize: 18 }} />
                                 </IconButton>
@@ -863,17 +951,18 @@ const ChatPage: React.FC = () => {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
+                                onPaste={handlePaste}
                                 variant="standard"
                                 InputProps={{ disableUnderline: true, sx: { fontSize: 14, py: 0.5 } }}
                             />
                             <IconButton
                                 onClick={handleSend}
-                                disabled={(!input.trim() && !selectedImage) || isLoading || isUploading}
+                                disabled={(!input.trim() && !attachedFile) || isLoading || isUploading}
                                 size="small"
                                 sx={{
-                                    bgcolor: (input.trim() || selectedImage) ? (resolvedMode === 'dark' ? '#fff' : '#0a0a0a') : 'transparent',
-                                    color: (input.trim() || selectedImage) ? (resolvedMode === 'dark' ? '#0a0a0a' : '#fff') : 'inherit',
-                                    '&:hover': { bgcolor: (input.trim() || selectedImage) ? (resolvedMode === 'dark' ? '#eee' : '#222') : 'transparent' },
+                                    bgcolor: (input.trim() || attachedFile) ? (resolvedMode === 'dark' ? '#fff' : '#0a0a0a') : 'transparent',
+                                    color: (input.trim() || attachedFile) ? (resolvedMode === 'dark' ? '#0a0a0a' : '#fff') : 'inherit',
+                                    '&:hover': { bgcolor: (input.trim() || attachedFile) ? (resolvedMode === 'dark' ? '#eee' : '#222') : 'transparent' },
                                     '&.Mui-disabled': { bgcolor: 'transparent' }
                                 }}
                             >
