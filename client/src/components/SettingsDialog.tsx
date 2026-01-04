@@ -5,6 +5,7 @@ import {
     ListItemText, IconButton, Button, Divider, Select, MenuItem, FormControl, TextField
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { useThemeMode } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import api from '../services/api';
@@ -56,36 +57,128 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
         }
     };
 
-    // Model Config State
-    const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
+    // AI Model Config State
+    const [aiProvider, setAiProvider] = useState('ollama');
+    const [ollamaConfig, setOllamaConfig] = useState({ baseUrl: 'http://localhost:11434', model: '' });
+
+    const [openaiConfig, setOpenaiConfig] = useState({ model: 'gpt-3.5-turbo', hasKey: false });
+    const [anthropicConfig, setAnthropicConfig] = useState({ model: 'claude-3-sonnet-20240229', hasKey: false });
+    const [deepseekConfig, setDeepseekConfig] = useState({ model: 'deepseek-chat', hasKey: false });
+    const [grokConfig, setGrokConfig] = useState({ model: 'grok-1', hasKey: false });
+    const [awsConfig, setAwsConfig] = useState({ region: 'us-east-1', modelId: '', hasKey: false });
+    const [azureConfig, setAzureConfig] = useState({ endpoint: '', deploymentName: '', hasKey: false });
+    const [customConfig, setCustomConfig] = useState({ baseUrl: '', model: '', hasKey: false });
+    const [ragConfig, setRagConfig] = useState({ provider: 'ollama', model: '' });
+
+    // New API key input (separate from display state - for secure updates)
+    const [newApiKey, setNewApiKey] = useState('');
+    const [newAccessKey, setNewAccessKey] = useState('');
+    const [newSecretKey, setNewSecretKey] = useState('');
+
+    // Available models per provider
+    const [availableModels, setAvailableModels] = useState<{ id: string, name: string }[]>([]);
+    const [ragModels, setRagModels] = useState<{ id: string, name: string }[]>([]);
+    const [loadingModels, setLoadingModels] = useState(false);
+    const [loadingRagModels, setLoadingRagModels] = useState(false);
+    const [settingsLoaded, setSettingsLoaded] = useState(false);
+
     const [systemInstructions, setSystemInstructions] = useState('');
-    const [defaultModel, setDefaultModel] = useState('llama3');
 
     React.useEffect(() => {
         if (open) {
+            setSettingsLoaded(false);
             loadSettings();
         }
     }, [open]);
+
+    // Load models AFTER settings are loaded
+    React.useEffect(() => {
+        if (open && settingsLoaded) {
+            if (aiProvider) loadModels(aiProvider);
+            if (ragConfig.provider) loadRagModels(ragConfig.provider);
+        }
+    }, [settingsLoaded, aiProvider, ragConfig.provider]);
+
+    const loadModels = async (provider: string) => {
+        setLoadingModels(true);
+        try {
+            const models = await fetchModels(provider);
+            setAvailableModels(models);
+        } catch (e) {
+            setAvailableModels([]);
+        } finally {
+            setLoadingModels(false);
+        }
+    };
+
+    const loadRagModels = async (provider: string) => {
+        setLoadingRagModels(true);
+        try {
+            const models = await fetchModels(provider);
+            setRagModels(models);
+        } catch (e) {
+            setRagModels([]);
+        } finally {
+            setLoadingRagModels(false);
+        }
+    };
+
+    const fetchModels = async (provider: string) => {
+        try {
+            let url = `/settings/models/${provider}`;
+            if (provider === 'ollama' && ollamaConfig.baseUrl) {
+                url += `?baseUrl=${encodeURIComponent(ollamaConfig.baseUrl)}`;
+            }
+        const { data } = await api.get(url);
+            return data.models || [];
+        } catch (e: any) {
+            console.error('Failed to load models', e);
+            throw e;
+        }
+    };
+
+    // const refreshModels = () => {
+    //     loadModels(aiProvider);
+    //     if (ragConfig.provider) loadRagModels(ragConfig.provider);
+    // };
 
     const loadSettings = async () => {
         try {
             const { data } = await api.get('/settings');
             if (data) {
-                setOllamaBaseUrl(data.ollamaBaseUrl || 'http://localhost:11434');
+                setAiProvider(data.aiProvider || 'ollama');
+                if (data.ollama) setOllamaConfig({ baseUrl: data.ollama.baseUrl || 'http://localhost:11434', model: data.ollama.model || '' });
+                if (data.openai) setOpenaiConfig({ model: data.openai.model || 'gpt-3.5-turbo', hasKey: data.openai.hasKey || false });
+                if (data.anthropic) setAnthropicConfig({ model: data.anthropic.model || 'claude-3-sonnet-20240229', hasKey: data.anthropic.hasKey || false });
+                if (data.deepseek) setDeepseekConfig({ model: data.deepseek.model || 'deepseek-chat', hasKey: data.deepseek.hasKey || false });
+                if (data.grok) setGrokConfig({ model: data.grok.model || 'grok-1', hasKey: data.grok.hasKey || false });
+                if (data.aws) setAwsConfig({ region: data.aws.region || 'us-east-1', modelId: data.aws.modelId || '', hasKey: data.aws.hasKey || false });
+                if (data.azure) setAzureConfig({ endpoint: data.azure.endpoint || '', deploymentName: data.azure.deploymentName || '', hasKey: data.azure.hasKey || false });
+                if (data.custom) setCustomConfig({ baseUrl: data.custom.baseUrl || '', model: data.custom.model || '', hasKey: data.custom.hasKey || false });
+                if (data.rag) setRagConfig({ provider: data.rag.provider || 'ollama', model: data.rag.model || '' });
                 setSystemInstructions(data.systemInstructions || '');
-                setDefaultModel(data.defaultModel || 'llama3');
             }
+            setSettingsLoaded(true);
         } catch (e) {
             console.error('Failed to load settings', e);
+            setSettingsLoaded(true);
         }
     };
 
     const handleSaveSettings = async () => {
         try {
             await api.put('/settings', {
-                ollamaBaseUrl,
-                systemInstructions,
-                defaultModel
+                aiProvider,
+                ollama: ollamaConfig,
+                openai: { model: openaiConfig.model },
+                anthropic: { model: anthropicConfig.model },
+                deepseek: { model: deepseekConfig.model },
+                grok: { model: grokConfig.model },
+                aws: { region: awsConfig.region, modelId: awsConfig.modelId },
+                azure: { endpoint: azureConfig.endpoint, deploymentName: azureConfig.deploymentName },
+                custom: { baseUrl: customConfig.baseUrl, model: customConfig.model },
+                rag: ragConfig,
+                systemInstructions
             });
             alert('Settings saved successfully!');
         } catch (e: any) {
@@ -93,18 +186,86 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
         }
     };
 
-    const testConnection = async () => {
+    const handleSaveApiKey = async (provider: string) => {
         try {
-            const { data } = await api.post('/settings/validate', { url: ollamaBaseUrl });
-            alert(`✅ Connected! Found ${data.models?.length || 0} models`);
-        } catch (e) {
-            alert('❌ Could not connect to Ollama');
+            const payload: any = { provider };
+            if (provider === 'aws') {
+                payload.accessKey = newAccessKey;
+                payload.secretKey = newSecretKey;
+            } else {
+                payload.apiKey = newApiKey;
+            }
+            await api.post('/settings/secrets', payload);
+            alert('API key saved securely! ✅');
+            setNewApiKey('');
+            setNewAccessKey('');
+            setNewSecretKey('');
+            loadSettings(); // Refresh to get hasKey status
+        } catch (e: any) {
+            alert(e.response?.data?.message || 'Failed to save API key');
         }
     };
+
+    const testConnection = async (silent = false) => {
+        try {
+            const { data } = await api.post('/settings/validate', {
+                provider: aiProvider,
+                url: aiProvider === 'ollama' ? ollamaConfig.baseUrl : undefined,
+                apiKey: newApiKey || undefined
+            });
+
+            if (data.success) {
+                if (data.models) setAvailableModels(data.models);
+                if (!silent) alert(`✅ ${data.message || 'Connection successful!'}`);
+                if (!data.models) loadModels(aiProvider);
+            } else {
+                if (!silent) alert(`❌ ${data.message || 'Connection failed'}`);
+            }
+        } catch (e: any) {
+            const msg = e.response?.data?.message || 'Connection failed';
+            if (!silent) alert(`❌ ${msg}`);
+        }
+    };
+
+    // Specifically test with a provided key
+    const testProviderConnection = async (provider: string, specificKey?: string, silent = false) => {
+        try {
+            const { data } = await api.post('/settings/validate', {
+                provider: provider,
+                apiKey: specificKey || (aiProvider === provider ? newApiKey : undefined)
+            });
+            if (data.success) {
+                if (data.models) setAvailableModels(data.models);
+                if (!silent) alert(`✅ ${data.message || 'Connection successful!'}`);
+                if (!data.models) loadModels(provider);
+            } else {
+                if (!silent) alert(`❌ ${data.message || 'Connection failed'}`);
+            }
+        } catch (e: any) {
+            const msg = e.response?.data?.message || 'Connection failed';
+            if (!silent) alert(`❌ ${msg}`);
+        }
+    };
+
+    // Auto-detect effect
+    React.useEffect(() => {
+        if (!open || !settingsLoaded) return;
+
+        const timer = setTimeout(() => {
+            if (aiProvider === 'ollama' && ollamaConfig.baseUrl) {
+                testConnection(true);
+            } else if (aiProvider !== 'ollama' && newApiKey) {
+                testProviderConnection(aiProvider, newApiKey, true);
+            }
+        }, 1500); // 1.5s debounce
+
+        return () => clearTimeout(timer);
+    }, [aiProvider, ollamaConfig.baseUrl, newApiKey, open, settingsLoaded]);
 
     const tabs = [
         { name: 'General', icon: <SettingsIcon fontSize="small" /> },
         { name: 'Modelconfig', icon: <TuneIcon fontSize="small" /> },
+        { name: 'RAG', icon: <StorageIcon fontSize="small" /> },
         { name: 'Notifications', icon: <NotificationsNoneIcon fontSize="small" /> },
         { name: 'Personalization', icon: <PaletteIcon fontSize="small" /> },
         { name: 'Apps', icon: <AppsIcon fontSize="small" /> },
@@ -178,34 +339,359 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                 return (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         <Box>
-                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Ollama Configuration</Typography>
-                            <TextField
-                                fullWidth
-                                size="small"
-                                label="Base URL"
-                                value={ollamaBaseUrl}
-                                onChange={(e) => setOllamaBaseUrl(e.target.value)}
-                                helperText="e.g., http://localhost:11434"
-                            />
+                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>AI Provider</Typography>
+                            <FormControl fullWidth size="small">
+                                <Select
+                                    value={aiProvider}
+                                    onChange={(e) => setAiProvider(e.target.value)}
+                                >
+                                    <MenuItem value="ollama">Ollama (Local)</MenuItem>
+                                    <MenuItem value="colab">Google Colab (Ollama)</MenuItem>
+                                    <MenuItem value="openai">OpenAI</MenuItem>
+                                    <MenuItem value="anthropic">Claude (Anthropic)</MenuItem>
+                                    <MenuItem value="deepseek">DeepSeek</MenuItem>
+                                    <MenuItem value="grok">Grok (xAI)</MenuItem>
+                                    <MenuItem value="aws">AWS Bedrock</MenuItem>
+                                    <MenuItem value="azure">Azure OpenAI</MenuItem>
+                                    <MenuItem value="custom">Custom Endpoint (OpenAI Compatible)</MenuItem>
+                                </Select>
+                            </FormControl>
                         </Box>
 
-                        <Box>
-                            <TextField
-                                fullWidth
-                                size="small"
-                                label="Default Model"
-                                value={defaultModel}
-                                onChange={(e) => setDefaultModel(e.target.value)}
-                                helperText="e.g., llama3, mistral"
-                            />
-                        </Box>
+                        <Divider />
 
-                        <Button variant="outlined" onClick={testConnection} size="small" sx={{ alignSelf: 'start' }}>
-                            Test Connection
-                        </Button>
-                        <Button variant="contained" onClick={handleSaveSettings} sx={{ alignSelf: 'end' }}>
-                            Save Changes
-                        </Button>
+                        {aiProvider === 'ollama' && (
+                            <>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Ollama Base URL</Typography>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <TextField
+                                            fullWidth size="small"
+                                            value={ollamaConfig.baseUrl}
+                                            onChange={(e) => setOllamaConfig({ ...ollamaConfig, baseUrl: e.target.value })}
+                                            placeholder="http://localhost:11434"
+                                        />
+                                        <Button variant="outlined" size="small" onClick={() => testConnection(false)} disabled={loadingModels}>
+                                            {loadingModels ? '...' : 'Test'}
+                                        </Button>
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                        Model {availableModels.length > 0 && <span style={{ color: '#4caf50' }}>({availableModels.length} available)</span>}
+                                    </Typography>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={ollamaConfig.model}
+                                            onChange={(e) => setOllamaConfig({ ...ollamaConfig, model: e.target.value })}
+                                            displayEmpty
+                                        >
+                                            <MenuItem value="" disabled>
+                                                {loadingModels ? 'Loading models...' : (availableModels.length === 0 ? 'No models found - click Refresh' : 'Select a model')}
+                                            </MenuItem>
+                                            {availableModels.map(m => (
+                                                <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                            </>
+                        )}
+
+                        {aiProvider === 'openai' && (
+                            <>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                        API Key {openaiConfig.hasKey && <span style={{ color: '#4caf50' }}>✓ Configured</span>}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <TextField
+                                            fullWidth size="small" type="password"
+                                            value={newApiKey}
+                                            onChange={(e) => setNewApiKey(e.target.value)}
+                                            placeholder={openaiConfig.hasKey ? '••••••••••••••••' : 'Enter API key'}
+                                        />
+                                        <Button variant="outlined" size="small" onClick={() => testProviderConnection('openai')}>
+                                            Test
+                                        </Button>
+                                        <Button variant="contained" size="small" onClick={() => handleSaveApiKey('openai')}>
+                                            Save
+                                        </Button>
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Model</Typography>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={openaiConfig.model}
+                                            onChange={(e) => setOpenaiConfig({ ...openaiConfig, model: e.target.value })}
+                                        >
+                                            {availableModels.length > 0 ? availableModels.map(m => (
+                                                <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                            )) : (
+                                                <>
+                                                    <MenuItem value="gpt-4o">GPT-4o</MenuItem>
+                                                    <MenuItem value="gpt-4-turbo">GPT-4 Turbo</MenuItem>
+                                                    <MenuItem value="gpt-4">GPT-4</MenuItem>
+                                                    <MenuItem value="gpt-3.5-turbo">GPT-3.5 Turbo</MenuItem>
+                                                </>
+                                            )}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                            </>
+                        )}
+
+                        {aiProvider === 'anthropic' && (
+                            <>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                        API Key {anthropicConfig.hasKey && <span style={{ color: '#4caf50' }}>✓ Configured</span>}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <TextField
+                                            fullWidth size="small" type="password"
+                                            value={newApiKey}
+                                            onChange={(e) => setNewApiKey(e.target.value)}
+                                            placeholder={anthropicConfig.hasKey ? '••••••••••••••••' : 'Enter API key'}
+                                        />
+                                        <Button variant="outlined" size="small" onClick={() => testProviderConnection('anthropic')}>
+                                            Test
+                                        </Button>
+                                        <Button variant="contained" size="small" onClick={() => handleSaveApiKey('anthropic')}>
+                                            Save
+                                        </Button>
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Model</Typography>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={anthropicConfig.model}
+                                            onChange={(e) => setAnthropicConfig({ ...anthropicConfig, model: e.target.value })}
+                                        >
+                                            {availableModels.map(m => (
+                                                <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                            </>
+                        )}
+
+                        {aiProvider === 'deepseek' && (
+                            <>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                        API Key {deepseekConfig.hasKey && <span style={{ color: '#4caf50' }}>✓ Configured</span>}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <TextField
+                                            fullWidth size="small" type="password"
+                                            value={newApiKey}
+                                            onChange={(e) => setNewApiKey(e.target.value)}
+                                            placeholder={deepseekConfig.hasKey ? '••••••••••••••••' : 'Enter API key'}
+                                        />
+                                        <Button variant="outlined" size="small" onClick={() => testProviderConnection('deepseek')}>
+                                            Test
+                                        </Button>
+                                        <Button variant="contained" size="small" onClick={() => handleSaveApiKey('deepseek')}>
+                                            Save
+                                        </Button>
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Model</Typography>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={deepseekConfig.model}
+                                            onChange={(e) => setDeepseekConfig({ ...deepseekConfig, model: e.target.value })}
+                                        >
+                                            {availableModels.map(m => (
+                                                <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                            </>
+                        )}
+
+                        {aiProvider === 'grok' && (
+                            <>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                        API Key {grokConfig.hasKey && <span style={{ color: '#4caf50' }}>✓ Configured</span>}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <TextField
+                                            fullWidth size="small" type="password"
+                                            value={newApiKey}
+                                            onChange={(e) => setNewApiKey(e.target.value)}
+                                            placeholder={grokConfig.hasKey ? '••••••••••••••••' : 'Enter API key'}
+                                        />
+                                        <Button variant="outlined" size="small" onClick={() => testProviderConnection('grok')}>
+                                            Test
+                                        </Button>
+                                        <Button variant="contained" size="small" onClick={() => handleSaveApiKey('grok')}>
+                                            Save
+                                        </Button>
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Model</Typography>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            value={grokConfig.model}
+                                            onChange={(e) => setGrokConfig({ ...grokConfig, model: e.target.value })}
+                                        >
+                                            {availableModels.map(m => (
+                                                <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                            </>
+                        )}
+
+                        {aiProvider === 'aws' && (
+                            <>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                        AWS Credentials {awsConfig.hasKey && <span style={{ color: '#4caf50' }}>✓ Configured</span>}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                                        <TextField
+                                            fullWidth size="small"
+                                            value={newAccessKey}
+                                            onChange={(e) => setNewAccessKey(e.target.value)}
+                                            placeholder="Access Key ID"
+                                        />
+                                        <TextField
+                                            fullWidth size="small" type="password"
+                                            value={newSecretKey}
+                                            onChange={(e) => setNewSecretKey(e.target.value)}
+                                            placeholder="Secret Access Key"
+                                        />
+                                        <Button variant="outlined" size="small" onClick={() => handleSaveApiKey('aws')}>
+                                            Save
+                                        </Button>
+                                    </Box>
+                                </Box>
+                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Region</Typography>
+                                        <TextField
+                                            fullWidth size="small"
+                                            value={awsConfig.region}
+                                            onChange={(e) => setAwsConfig({ ...awsConfig, region: e.target.value })}
+                                            placeholder="us-east-1"
+                                        />
+                                    </Box>
+                                    <Box sx={{ flex: 2 }}>
+                                        <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Model</Typography>
+                                        <FormControl fullWidth size="small">
+                                            <Select
+                                                value={awsConfig.modelId}
+                                                onChange={(e) => setAwsConfig({ ...awsConfig, modelId: e.target.value })}
+                                            >
+                                                {availableModels.map(m => (
+                                                    <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    </Box>
+                                </Box>
+                            </>
+                        )}
+
+                        {aiProvider === 'azure' && (
+                            <>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                        API Key {azureConfig.hasKey && <span style={{ color: '#4caf50' }}>✓ Configured</span>}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <TextField
+                                            fullWidth size="small" type="password"
+                                            value={newApiKey}
+                                            onChange={(e) => setNewApiKey(e.target.value)}
+                                            placeholder={azureConfig.hasKey ? '••••••••••••••••' : 'Enter API key'}
+                                        />
+                                        <Button variant="outlined" size="small" onClick={() => handleSaveApiKey('azure')}>
+                                            Save
+                                        </Button>
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Endpoint</Typography>
+                                    <TextField
+                                        fullWidth size="small"
+                                        value={azureConfig.endpoint}
+                                        onChange={(e) => setAzureConfig({ ...azureConfig, endpoint: e.target.value })}
+                                        placeholder="https://YOUR_RESOURCE.openai.azure.com/"
+                                    />
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Deployment Name</Typography>
+                                    <TextField
+                                        fullWidth size="small"
+                                        value={azureConfig.deploymentName}
+                                        onChange={(e) => setAzureConfig({ ...azureConfig, deploymentName: e.target.value })}
+                                    />
+                                </Box>
+                            </>
+                        )}
+
+                        {aiProvider === 'custom' && (
+                            <>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Base URL</Typography>
+                                    <TextField
+                                        fullWidth size="small"
+                                        value={customConfig.baseUrl}
+                                        onChange={(e) => setCustomConfig({ ...customConfig, baseUrl: e.target.value })}
+                                        placeholder="https://api.yourprovider.com/v1"
+                                    />
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                        API Key {customConfig.hasKey && <span style={{ color: '#4caf50' }}>✓ Configured</span>}
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <TextField
+                                            fullWidth size="small" type="password"
+                                            value={newApiKey}
+                                            onChange={(e) => setNewApiKey(e.target.value)}
+                                            placeholder={customConfig.hasKey ? '••••••••••••••••' : 'Enter API key'}
+                                        />
+                                        <Button variant="outlined" size="small" onClick={() => testProviderConnection('custom')}>
+                                            Test
+                                        </Button>
+                                        <Button variant="contained" size="small" onClick={() => handleSaveApiKey('custom')}>
+                                            Save
+                                        </Button>
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Model</Typography>
+                                    <TextField
+                                        fullWidth size="small"
+                                        value={customConfig.model}
+                                        onChange={(e) => setCustomConfig({ ...customConfig, model: e.target.value })}
+                                    />
+                                </Box>
+                            </>
+                        )}
+
+
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                            <Button variant="outlined" onClick={() => testConnection(false)} size="small">
+                                Test Connection
+                            </Button>
+                            <Button variant="contained" onClick={handleSaveSettings}>
+                                Save Configuration
+                            </Button>
+                        </Box>
                     </Box>
                 );
             case 'Personalization':
@@ -290,6 +776,69 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                 </Button>
                             </Box>
                         </Box>
+                    </Box>
+                );
+            case 'RAG':
+                return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                            Configure the model used for Retrieval-Augmented Generation (reading documents and search results).
+                            You can use a more capable model specifically for processing context.
+                        </Typography>
+                        <Box>
+                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>RAG Provider</Typography>
+                            <FormControl fullWidth size="small">
+                                <Select
+                                    value={ragConfig.provider}
+                                    onChange={(e) => {
+                                        const newProvider = e.target.value;
+                                        setRagConfig({ ...ragConfig, provider: newProvider, model: '' });
+                                        loadRagModels(newProvider);
+                                    }}
+                                >
+                                    <MenuItem value="ollama">Ollama (Local)</MenuItem>
+                                    <MenuItem value="openai">OpenAI</MenuItem>
+                                    <MenuItem value="anthropic">Claude (Anthropic)</MenuItem>
+                                    <MenuItem value="deepseek">DeepSeek</MenuItem>
+                                    <MenuItem value="grok">Grok (xAI)</MenuItem>
+                                    <MenuItem value="aws">AWS Bedrock</MenuItem>
+                                    <MenuItem value="azure">Azure OpenAI</MenuItem>
+                                    <MenuItem value="custom">Custom Endpoint</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Box>
+
+                        <Divider />
+
+                        <Box>
+                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                RAG Model {ragModels.length > 0 && <span style={{ color: '#4caf50' }}>({ragModels.length} available)</span>}
+                            </Typography>
+                            <FormControl fullWidth size="small">
+                                <Select
+                                    value={ragConfig.model}
+                                    onChange={(e) => setRagConfig({ ...ragConfig, model: e.target.value })}
+                                    displayEmpty
+                                >
+                                    <MenuItem value="" disabled>
+                                        {loadingRagModels ? 'Loading models...' : (ragModels.length === 0 ? 'Select a provider above' : 'Select a model')}
+                                    </MenuItem>
+                                    {ragModels.map(m => (
+                                        <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => loadRagModels(ragConfig.provider)}
+                            disabled={loadingRagModels}
+                            startIcon={<RefreshIcon />} // Assuming RefreshIcon is imported
+                            sx={{ alignSelf: 'flex-start' }}
+                        >
+                            Refresh Models
+                        </Button>
                     </Box>
                 );
             default:

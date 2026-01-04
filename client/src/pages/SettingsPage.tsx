@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Typography, TextField, IconButton } from '@mui/material';
+import { Box, Container, Typography, TextField, IconButton, FormControl, InputLabel, Select, MenuItem, CircularProgress } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -10,6 +10,9 @@ const SettingsPage: React.FC = () => {
     const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
     const [systemInstructions, setSystemInstructions] = useState('');
     const [defaultModel, setDefaultModel] = useState('llama3');
+    const [availableModels, setAvailableModels] = useState<{ id: string, name: string }[]>([]);
+    const [loadingModels, setLoadingModels] = useState(false);
+    const [settingsLoaded, setSettingsLoaded] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -19,11 +22,15 @@ const SettingsPage: React.FC = () => {
     const loadSettings = async () => {
         try {
             const { data } = await api.get('/settings');
-            setOllamaBaseUrl(data.ollamaBaseUrl);
-            setSystemInstructions(data.systemInstructions);
-            setDefaultModel(data.defaultModel);
+            if (data) {
+                setOllamaBaseUrl(data.ollamaBaseUrl || 'http://localhost:11434');
+                setSystemInstructions(data.systemInstructions || '');
+                setDefaultModel(data.defaultModel || 'llama3');
+                setSettingsLoaded(true);
+            }
         } catch (e) {
             console.error(e);
+            setSettingsLoaded(true);
         }
     };
 
@@ -40,14 +47,38 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const testConnection = async () => {
+    const testConnection = async (silent = false) => {
+        if (!silent) setLoadingModels(true);
         try {
-            const { data } = await api.post('/settings/validate', { url: ollamaBaseUrl });
-            alert(`✅ Connected! Found ${data.models?.length || 0} models`);
-        } catch (e) {
-            alert('❌ Could not connect to Ollama');
+            const { data } = await api.post('/settings/validate', {
+                provider: 'ollama',
+                url: ollamaBaseUrl
+            });
+
+            if (data.success) {
+                if (data.models) setAvailableModels(data.models);
+                if (!silent) alert(`✅ ${data.message || 'Ollama connected successfully!'}`);
+            } else {
+                if (!silent) alert(`❌ ${data.message || 'Connection failed'}`);
+            }
+        } catch (e: any) {
+            const msg = e.response?.data?.message || 'Could not connect to Ollama';
+            if (!silent) alert(`❌ ${msg}`);
+        } finally {
+            if (!silent) setLoadingModels(false);
         }
     };
+
+    // Auto-detect effect
+    useEffect(() => {
+        if (!settingsLoaded || !ollamaBaseUrl) return;
+
+        const timer = setTimeout(() => {
+            testConnection(true);
+        }, 1500);
+
+        return () => clearTimeout(timer);
+    }, [ollamaBaseUrl, settingsLoaded]);
 
     return (
         <Box sx={{ minHeight: '100vh', py: 4, position: 'relative', zIndex: 1 }}>
@@ -64,25 +95,49 @@ const SettingsPage: React.FC = () => {
 
                 <GlassCard sx={{ p: 4 }}>
                     <Typography variant="h6" gutterBottom>Ollama Configuration</Typography>
-                    <TextField
-                        fullWidth
-                        label="Ollama Base URL"
-                        value={ollamaBaseUrl}
-                        onChange={(e) => setOllamaBaseUrl(e.target.value)}
-                        margin="normal"
-                        helperText="e.g., http://localhost:11434"
-                    />
-                    <TextField
-                        fullWidth
-                        label="Default Model"
-                        value={defaultModel}
-                        onChange={(e) => setDefaultModel(e.target.value)}
-                        margin="normal"
-                        helperText="e.g., llama3, mistral, codellama"
-                    />
-                    <GlassButton variant="outlined" onClick={testConnection} sx={{ mt: 1, mb: 3 }}>
-                        Test Connection
-                    </GlassButton>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                        <TextField
+                            fullWidth
+                            label="Ollama Base URL"
+                            value={ollamaBaseUrl}
+                            onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                            margin="normal"
+                            helperText="e.g., http://localhost:11434"
+                        />
+                        <GlassButton
+                            variant="outlined"
+                            onClick={() => testConnection(false)}
+                            sx={{ mt: 2 }}
+                            disabled={loadingModels}
+                        >
+                            {loadingModels ? <CircularProgress size={20} /> : 'Test'}
+                        </GlassButton>
+                    </Box>
+
+                    <FormControl fullWidth margin="normal" variant="outlined">
+                        <InputLabel>Default Model</InputLabel>
+                        <Select
+                            value={defaultModel}
+                            onChange={(e) => setDefaultModel(e.target.value as string)}
+                            label="Default Model"
+                        >
+                            <MenuItem value="" disabled>
+                                {availableModels.length === 0 ? 'No models detected - type URL above' : 'Select a model'}
+                            </MenuItem>
+                            {availableModels.map(m => (
+                                <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                            ))}
+                            {/* Fallback if current model is not in list */}
+                            {defaultModel && !availableModels.find(m => m.id === defaultModel) && (
+                                <MenuItem value={defaultModel}>{defaultModel} (custom)</MenuItem>
+                            )}
+                        </Select>
+                        {availableModels.length > 0 && (
+                            <Typography variant="caption" color="success.main" sx={{ mt: 0.5, ml: 1 }}>
+                                ✓ {availableModels.length} models detected automatically
+                            </Typography>
+                        )}
+                    </FormControl>
 
                     <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>System Instructions</Typography>
                     <TextField

@@ -5,6 +5,7 @@ const axios = require('axios');
 const searchService = require('../services/searchService');
 const vectorService = require('../services/vectorService');
 const DocumentChunk = require('../models/DocumentChunk');
+const aiService = require('../services/aiService');
 
 exports.createChat = async (req, res) => {
     try {
@@ -92,20 +93,22 @@ exports.getChatMessages = async (req, res) => {
 };
 
 exports.sendMessage = async (req, res) => {
-    const { content, webSearch, image, documentId } = req.body;
+    const { content, webSearch, image, documentId, aiProvider, model } = req.body;
     const chatId = req.params.id;
 
     try {
         const currentChat = await Chat.findOne({ _id: chatId, userId: req.user.id });
         if (!currentChat) return res.status(404).json({ message: 'Chat not found' });
 
-        const settings = await UserSettings.findOne({ userId: req.user.id }) || {};
-        const ollamaUrl = settings.ollamaBaseUrl || 'http://localhost:11434';
-        const model = settings.defaultModel || 'mistral';
+        let settings = await UserSettings.findOne({ userId: req.user.id }) || {};
 
-        // Sanitize URL
-        const normalizedUrl = ollamaUrl.replace(/\/$/, '').replace(/\/api\/(chat|generate|embeddings|embed)$/, '');
-        const chatEndpoint = `${normalizedUrl}/api/chat`;
+        if (aiProvider) settings.aiProvider = aiProvider;
+        if (model && settings.aiProvider) {
+            if (settings.toObject) settings = settings.toObject();
+            if (!settings[settings.aiProvider]) settings[settings.aiProvider] = {};
+            settings[settings.aiProvider].model = model;
+        }
+        const histSize = settings.historyWindowSize || 20;
 
         // Perform RAG web search if enabled
         let searchContext = '';
@@ -137,9 +140,8 @@ exports.sendMessage = async (req, res) => {
             console.error('❌ Document RAG failed:', docError.message);
         }
 
-        // Prepare context for Ollama
-        const HISTORY_WINDOW_SIZE = settings.historyWindowSize || 20;
-        const recentMessages = currentChat.messages.slice(-HISTORY_WINDOW_SIZE);
+        // Prepare context for AI provider
+        const recentMessages = currentChat.messages.slice(-histSize);
 
         const history = recentMessages.map(m => {
             const msgObj = {
@@ -183,12 +185,8 @@ exports.sendMessage = async (req, res) => {
         if (currentChat.messages.length === 1 && currentChat.title === 'New Chat') {
             try {
                 const titlePrompt = `Summarize the following user message into a very short, concise title (max 5 words). Output ONLY the title, no quotes, no punctuation, no extra text.\n\nUser Message: ${content}`;
-                const titleResponse = await axios.post(`${normalizedUrl}/api/generate`, {
-                    model,
-                    prompt: titlePrompt,
-                    stream: false
-                });
-                newTitle = titleResponse.data.response?.trim().replace(/^["']|["']$/g, '');
+                const generatedTitle = await aiService.generate(settings, [{ role: 'user', content: titlePrompt }]);
+                newTitle = generatedTitle?.trim().replace(/^["']|["']$/g, '');
                 if (newTitle) {
                     currentChat.title = newTitle;
                     await currentChat.save();
@@ -199,19 +197,17 @@ exports.sendMessage = async (req, res) => {
             }
         }
 
-        console.log(`📊 AI Request: [${model}] ${history.length} messages`);
-        console.log('📡 Payload Summary:', history.map(h => `${h.role} (${h.content?.length || 0} chars)${h.images ? ' + [Img]' : ''}`).join(' | '));
+        console.log(`📊 AI Request: [${settings.aiProvider || 'ollama'}] ${history.length} messages`);
 
-        const response = await axios({
-            method: 'post',
-            url: chatEndpoint,
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
-            },
-            responseType: 'stream',
-            data: { model, messages: history, stream: true }
-        });
+        // Use RAG model override if active
+        const aiOptions = {};
+        if ((docContext || searchContext) && settings.rag && settings.rag.model) {
+            aiOptions.provider = settings.rag.provider;
+            aiOptions.model = settings.rag.model;
+            console.log(`🔍 RAG Override: [${aiOptions.provider}] ${aiOptions.model}`);
+        }
+
+        const { stream, parser } = await aiService.getStream(settings, history, aiOptions);
 
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
@@ -223,20 +219,17 @@ exports.sendMessage = async (req, res) => {
         }
 
         let assistantMessage = '';
-        response.data.on('data', chunk => {
-            const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
-            for (const line of lines) {
-                try {
-                    const json = JSON.parse(line);
-                    if (json.message?.content) {
-                        assistantMessage += json.message.content;
-                        res.write(`data: ${JSON.stringify({ content: json.message.content })}\n\n`);
-                    }
-                } catch (e) { }
+        stream.on('data', chunk => {
+            const results = parser(chunk);
+            for (const resObj of results) {
+                if (resObj.content) {
+                    assistantMessage += resObj.content;
+                    res.write(`data: ${JSON.stringify({ content: resObj.content })}\n\n`);
+                }
             }
         });
 
-        response.data.on('end', async () => {
+        stream.on('end', async () => {
             const latestChat = await Chat.findById(chatId);
             if (latestChat && assistantMessage.trim()) {
                 latestChat.messages.push({ role: 'assistant', content: assistantMessage });
@@ -247,7 +240,7 @@ exports.sendMessage = async (req, res) => {
             res.end();
         });
 
-        response.data.on('error', err => {
+        stream.on('error', err => {
             console.error('Stream error:', err);
             if (!res.headersSent) res.end();
             else {
@@ -348,17 +341,10 @@ exports.sendGroupMessage = async (req, res) => {
         await currentChat.save();
 
         const settings = await UserSettings.findOne({ userId: req.user.id }) || {};
-        const ollamaUrl = settings.ollamaBaseUrl || 'http://localhost:11434';
-        const model = settings.defaultModel || 'mistral';
-        const HISTORY_WINDOW_SIZE = settings.historyWindowSize || 20;
-
-        const normalizedUrl = ollamaUrl.replace(/\/$/, '').replace(/\/api\/(chat|generate|embeddings|embed)$/, '');
-        const chatEndpoint = `${normalizedUrl}/api/chat`;
+        const histSize = settings.historyWindowSize || 20;
 
         let docContext = '';
         try {
-            // Note: In groups, we could potentially search documents shared with the group
-            // For now, we search the documents of the user who is sending the message
             const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
             if (relevantChunks.length > 0) {
                 docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
@@ -381,7 +367,7 @@ exports.sendGroupMessage = async (req, res) => {
             }
         }
 
-        const recentMessages = currentChat.messages.slice(-HISTORY_WINDOW_SIZE).map(m => {
+        const recentMessages = currentChat.messages.slice(-histSize).map(m => {
             const msgObj = {
                 role: m.role,
                 content: m.content || (m.role === 'user' ? (m.image ? 'Image prompt' : '...') : '...')
@@ -414,20 +400,10 @@ exports.sendGroupMessage = async (req, res) => {
         }
         recentMessages.unshift({ role: 'system', content: unifiedSystemMessage });
 
-        console.log(`👥 Group Chat: [${model}] ${recentMessages.length} messages`);
-        console.log('📡 Group Payload Summary:', recentMessages.map(h => `${h.role} (${h.content?.length || 0} chars)${h.images ? ' + [Img]' : ''}`).join(' | '));
+        console.log(`👥 Group Chat: [${settings.aiProvider || 'ollama'}] ${recentMessages.length} messages`);
 
         try {
-            const response = await axios({
-                method: 'post',
-                url: chatEndpoint,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                responseType: 'stream',
-                data: { model, messages: recentMessages, stream: true }
-            });
+            const { stream, parser } = await aiService.getStream(settings, recentMessages);
 
             // Set headers after successful AI connection
             res.setHeader('Content-Type', 'text/event-stream');
@@ -436,24 +412,17 @@ exports.sendGroupMessage = async (req, res) => {
 
             let assistantMessage = '';
 
-            // 1. Send the user message confirmation first (optional, but helps UI know it's saved)
-            // res.write(`data: ${JSON.stringify({ type: 'confirmation', message })}\n\n`); 
-            // Simplified: Just start streaming AI response
-
-            response.data.on('data', chunk => {
-                const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
-                for (const line of lines) {
-                    try {
-                        const json = JSON.parse(line);
-                        if (json.message?.content) {
-                            assistantMessage += json.message.content;
-                            res.write(`data: ${JSON.stringify({ content: json.message.content })}\n\n`);
-                        }
-                    } catch (e) { }
+            stream.on('data', chunk => {
+                const results = parser(chunk);
+                for (const resObj of results) {
+                    if (resObj.content) {
+                        assistantMessage += resObj.content;
+                        res.write(`data: ${JSON.stringify({ content: resObj.content })}\n\n`);
+                    }
                 }
             });
 
-            response.data.on('end', async () => {
+            stream.on('end', async () => {
                 // Re-fetch chat to avoid VersionError if it was modified concurrently
                 const latestChat = await Chat.findById(chatId);
                 if (latestChat && assistantMessage.trim()) {

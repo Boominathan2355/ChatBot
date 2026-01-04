@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Drawer, List, ListItemButton, ListItemText, TextField, IconButton, Typography, Avatar, Tooltip, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, ListItemIcon, Divider } from '@mui/material';
+import { Box, Drawer, List, ListItemButton, ListItemText, TextField, IconButton, Typography, Avatar, Tooltip, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, ListItemIcon, Divider, useMediaQuery, useTheme } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import SendIcon from '@mui/icons-material/Send';
 import StopCircleIcon from '@mui/icons-material/StopCircle';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -90,6 +91,8 @@ const ChatPage: React.FC = () => {
     const [targetChatId, setTargetChatId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [userScrolledUp, setUserScrolledUp] = useState(false);
 
     // Edit Message State
     const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
@@ -108,12 +111,25 @@ const ChatPage: React.FC = () => {
         'Story': true
     });
 
+    // Quick Model Switching State
+    const [aiProvider, setAiProvider] = useState('ollama');
+    const [currentModel, setCurrentModel] = useState('');
+    const [availableModels, setAvailableModels] = useState<{ id: string, name: string }[]>([]);
+    const [modelMenuAnchor, setModelMenuAnchor] = useState<null | HTMLElement>(null);
+    const [isLoadingModels, setIsLoadingModels] = useState(false);
+
     const FOLDERS = ['Projects', 'Work', 'Homework', 'Writing', 'Story'];
     const { logout, user } = useAuthStore();
     const navigate = useNavigate();
     const location = useLocation();
-    const scrollRef = useRef<HTMLDivElement>(null);
     const { resolvedMode } = useThemeMode();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+
+    useEffect(() => {
+        setSidebarOpen(!isMobile);
+    }, [isMobile]);
 
     const isGroupChat = (chat: any) => chat?.isGrouped === true;
     const openMenu = Boolean(anchorEl);
@@ -146,14 +162,78 @@ const ChatPage: React.FC = () => {
     useEffect(() => {
         fetchChats();
         fetchGroups();
+        loadQuickSettings();
     }, []);
 
-    // Auto-scroll disabled per user request
-    // useEffect(() => {
-    //     if (scrollRef.current) {
-    //         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    //     }
-    // }, [messages]);
+    const loadQuickSettings = async () => {
+        try {
+            const { data } = await api.get('/settings');
+            if (data) {
+                setAiProvider(data.aiProvider || 'ollama');
+                const provider = data.aiProvider || 'ollama';
+                const model = data[provider]?.model || '';
+                setCurrentModel(model);
+
+                // Fetch models for this provider
+                fetchAvailableModels(provider, data.ollama?.baseUrl);
+            }
+        } catch (e) {
+            console.error('Failed to load quick settings', e);
+        }
+    };
+
+    const fetchAvailableModels = async (provider: string, ollamaBaseUrl?: string) => {
+        setIsLoadingModels(true);
+        try {
+            let url = `/settings/models/${provider}`;
+            if (provider === 'ollama' && ollamaBaseUrl) {
+                url += `?baseUrl=${encodeURIComponent(ollamaBaseUrl)}`;
+            }
+            const { data } = await api.get(url);
+            setAvailableModels(data.models || []);
+        } catch (e) {
+            console.error('Failed to fetch models', e);
+        } finally {
+            setIsLoadingModels(false);
+        }
+    };
+
+    const handleModelSwitch = async (modelId: string) => {
+        try {
+            setCurrentModel(modelId);
+            setModelMenuAnchor(null);
+
+            // Persist to backend
+            await api.put('/settings', {
+                aiProvider,
+                [aiProvider]: { model: modelId }
+            });
+        } catch (e) {
+            console.error('Failed to switch model', e);
+            alert('Failed to save model change');
+        }
+    };
+
+    // Smart scroll: Scroll to bottom only when NEW message is added (not during streaming)
+    // Track message count to detect when a new message is added
+    const prevMessageCountRef = useRef(0);
+
+    useEffect(() => {
+        // If message count increased or content is being added during streaming
+        if (!userScrolledUp && scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+        prevMessageCountRef.current = messages.length;
+    }, [messages, userScrolledUp]);
+
+    // Also scroll to bottom when user sends a new message (after loading a chat)
+    useEffect(() => {
+        if (currentChatId && messages.length > 0 && scrollRef.current) {
+            // Scroll to bottom when switching chats
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            setUserScrolledUp(false);
+        }
+    }, [currentChatId]);
 
     const fetchChats = async () => {
         try {
@@ -211,7 +291,7 @@ const ChatPage: React.FC = () => {
         if (!targetChatId || !newTitle.trim()) return;
         try {
             await api.patch(`/chats/${targetChatId}`, { title: newTitle });
-            setChats(prev => prev.map(c => c._id === targetChatId ? { ...c, title: newTitle } : c));
+            setChats((prev: any[]) => prev.map((c: any) => c._id === targetChatId ? { ...c, title: newTitle } : c));
             setRenameDialogOpen(false);
         } catch (e) { console.error(e); }
     };
@@ -224,10 +304,10 @@ const ChatPage: React.FC = () => {
         try {
             const newPinnedState = !chat.isPinned;
             await api.patch(`/chats/${targetChatId}`, { isPinned: newPinnedState });
-            setChats(prev => {
-                const updated = prev.map(c => c._id === targetChatId ? { ...c, isPinned: newPinnedState } : c);
+            setChats((prev: any[]) => {
+                const updated = prev.map((c: any) => c._id === targetChatId ? { ...c, isPinned: newPinnedState } : c);
                 // Re-sort
-                return updated.sort((a, b) => {
+                return updated.sort((a: any, b: any) => {
                     if (a.isPinned === b.isPinned) {
                         return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
                     }
@@ -242,7 +322,7 @@ const ChatPage: React.FC = () => {
         if (!targetChatId) return;
         try {
             await api.patch(`/chats/${targetChatId}`, { folder });
-            setChats(prev => prev.map(c => c._id === targetChatId ? { ...c, folder } : c));
+            setChats((prev: any[]) => prev.map((c: any) => c._id === targetChatId ? { ...c, folder } : c));
             handleCloseContextMenu();
         } catch (e) { console.error(e); }
     };
@@ -251,13 +331,13 @@ const ChatPage: React.FC = () => {
         if (!targetChatId) return;
         try {
             await api.patch(`/chats/${targetChatId}`, { folder: null });
-            setChats(prev => prev.map(c => c._id === targetChatId ? { ...c, folder: null } : c));
+            setChats((prev: any[]) => prev.map((c: any) => c._id === targetChatId ? { ...c, folder: null } : c));
             handleCloseContextMenu();
         } catch (e) { console.error(e); }
     };
 
     const toggleFolder = (folder: string) => {
-        setOpenFolders(prev => ({ ...prev, [folder]: !prev[folder] }));
+        setOpenFolders((prev: { [key: string]: boolean }) => ({ ...prev, [folder]: !prev[folder] }));
     };
 
     const fetchGroups = async () => {
@@ -356,6 +436,7 @@ const ChatPage: React.FC = () => {
     const handleSend = async () => {
         if ((!input.trim() && !attachedFile) || !currentChatId || isLoading || isUploading) return;
 
+        setUserScrolledUp(false);
         let messageContent = input;
         let imageObject = null;
         let fileObject = null;
@@ -431,7 +512,9 @@ const ChatPage: React.FC = () => {
                     content: messageContent || (imageObject ? 'Sent an image' : (fileObject ? `Uploaded ${currentFile?.name}` : '')),
                     image: imageObject,
                     webSearch: webSearchEnabled,
-                    documentId: fileObject?._id
+                    documentId: fileObject?._id,
+                    aiProvider: aiProvider,
+                    model: currentModel
                 })
             });
 
@@ -478,28 +561,30 @@ const ChatPage: React.FC = () => {
                         const json = JSON.parse(dataStr);
                         if (json.title) {
                             const updatedTitle = json.title;
-                            setChats(prev => prev.map(c => c._id === currentChatId ? { ...c, title: updatedTitle } : c));
+                            setChats((prev: any[]) => prev.map((c: any) => c._id === currentChatId ? { ...c, title: updatedTitle } : c));
                             if (currentChatId) {
                                 setCurrentChat((prev: any) => prev ? { ...prev, title: updatedTitle } : null);
                             }
                         }
                         if (json.content) {
                             assistantContent += json.content;
-                            setMessages(prev => {
+                            setMessages((prev: any[]) => {
                                 const newMessages = [...prev];
                                 const lastMsg = newMessages[newMessages.length - 1];
-                                if (lastMsg.role === 'assistant') {
+                                if (lastMsg && lastMsg.role === 'assistant') {
                                     lastMsg.content = assistantContent;
                                 }
                                 return newMessages;
                             });
                         }
-                    } catch (e) { }
+                    } catch (e: any) {
+                        console.error('Error parsing stream chunk:', e);
+                    }
                 }
             }
         }
 
-        // Process any leftover content in buffer (e.g. final token that didn't end in \n\n)
+        // Process any leftover content in buffer
         if (buffer.trim().startsWith('data: ')) {
             try {
                 const dataStr = buffer.trim().replace('data: ', '');
@@ -507,22 +592,26 @@ const ChatPage: React.FC = () => {
                     const json = JSON.parse(dataStr);
                     if (json.title) {
                         const updatedTitle = json.title;
-                        setChats(prev => prev.map(c => c._id === currentChatId ? { ...c, title: updatedTitle } : c));
+                        setChats((prev: any[]) => prev.map((c: any) => c._id === currentChatId ? { ...c, title: updatedTitle } : c));
                         if (currentChatId) {
                             setCurrentChat((prev: any) => prev ? { ...prev, title: updatedTitle } : null);
                         }
                     }
                     if (json.content) {
                         assistantContent += json.content;
-                        setMessages(prev => {
+                        setMessages((prev: any[]) => {
                             const newMessages = [...prev];
                             const lastMsg = newMessages[newMessages.length - 1];
-                            if (lastMsg.role === 'assistant') lastMsg.content = assistantContent;
+                            if (lastMsg && lastMsg.role === 'assistant') {
+                                lastMsg.content = assistantContent;
+                            }
                             return newMessages;
                         });
                     }
                 }
-            } catch (e) { }
+            } catch (e: any) {
+                console.error('Error parsing final stream chunk:', e);
+            }
         }
     };
 
@@ -532,7 +621,7 @@ const ChatPage: React.FC = () => {
             return;
         }
         console.error(e);
-        setMessages(prev => {
+        setMessages((prev: any[]) => {
             const last = prev[prev.length - 1];
             if (last.role === 'assistant' && !last.content) {
                 return prev.slice(0, -1);
@@ -579,7 +668,7 @@ const ChatPage: React.FC = () => {
         if (!targetUserMsg) return;
 
         // Optimistically clear/add the AI message placeholder
-        setMessages(prev => {
+        setMessages((prev: any[]) => {
             const newMsgs = [...prev];
             const placeholder = { role: 'assistant', content: '', metadata: { senderName: 'Jarvis' } };
 
@@ -683,8 +772,9 @@ const ChatPage: React.FC = () => {
         <Box sx={{ display: 'flex', height: '100vh', bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#ffffff' }}>
             {/* Sidebar */}
             <Drawer
-                variant="persistent"
-                open={true}
+                variant={isMobile ? 'temporary' : 'persistent'}
+                open={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
                 sx={{
                     width: DRAWER_WIDTH,
                     flexShrink: 0,
@@ -693,8 +783,6 @@ const ChatPage: React.FC = () => {
                         boxSizing: 'border-box',
                         bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#f5f5f5',
                         borderRight: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
-                        '&::-webkit-scrollbar': { display: 'none' },
-                        scrollbarWidth: 'none',
                     },
                 }}
             >
@@ -903,7 +991,11 @@ const ChatPage: React.FC = () => {
                     borderBottom: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
                 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {/* Toggle button removed */}
+                        {isMobile && (
+                            <IconButton onClick={() => setSidebarOpen(true)} size="small" sx={{ mr: 1 }}>
+                                <MenuIcon />
+                            </IconButton>
+                        )}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', '&:hover': { opacity: 0.8 } }}>
                             <Typography sx={{ fontWeight: 600, fontSize: 16 }}>{currentChat?.title || 'Jarvis AI'}</Typography>
                             <KeyboardArrowDownIcon sx={{ fontSize: 18, opacity: 0.5 }} />
@@ -972,12 +1064,16 @@ const ChatPage: React.FC = () => {
                 {/* Messages */}
                 <Box
                     ref={scrollRef}
+                    onScroll={(e) => {
+                        const el = e.currentTarget;
+                        const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+                        setUserScrolledUp(!isNearBottom);
+                    }}
                     sx={{
                         flex: 1,
                         overflowY: 'auto',
-                        px: 4,
+                        px: isMobile ? 2 : 4,
                         py: 4,
-
                     }}
                 >
                     <Box sx={{ maxWidth: 768, mx: 'auto' }}>
@@ -986,13 +1082,13 @@ const ChatPage: React.FC = () => {
                                 <Typography variant="h4" sx={{ fontWeight: 500, opacity: 0.8, mb: 1 }}>How can I help you today?</Typography>
                             </Box>
                         )}
-                        {messages.map((msg, i) => (
+                        {messages.map((msg: any, i: number) => (
                             <Box
                                 key={i}
                                 sx={{
                                     display: 'flex',
                                     gap: 2,
-                                    mb: 3,
+                                    mb: 6,
                                     alignItems: 'flex-start',
                                     flexDirection: msg.role === 'user' ? 'row-reverse' : 'row'
                                 }}
@@ -1025,7 +1121,7 @@ const ChatPage: React.FC = () => {
                                     {/* Message Container/Bubble */}
                                     <Box
                                         sx={{
-                                            minWidth: editingMessageIndex === i ? '350px' : 'auto',
+                                            minWidth: editingMessageIndex === i ? '300px' : 'auto',
                                             maxWidth: editingMessageIndex === i ? '95%' : '75%',
                                             width: editingMessageIndex === i ? '95%' : 'auto',
                                             bgcolor: msg.role === 'user'
@@ -1187,7 +1283,7 @@ const ChatPage: React.FC = () => {
                     </Box>
                 </Box>
 
-                {/* Input */}
+                {/* Input Area */}
                 <Box sx={{ p: 2 }}>
                     <Box sx={{ maxWidth: 768, mx: 'auto' }}>
                         {/* Attachment Preview */}
@@ -1239,6 +1335,7 @@ const ChatPage: React.FC = () => {
                                 </IconButton>
                             </Box>
                         )}
+
                         <Box
                             sx={{
                                 display: 'flex',
@@ -1282,6 +1379,40 @@ const ChatPage: React.FC = () => {
                                 </IconButton>
                             </Tooltip>
 
+                            {/* Quick Model Switcher */}
+                            <Box
+                                onClick={(e) => setModelMenuAnchor(e.currentTarget)}
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                    px: 1,
+                                    py: 0.5,
+                                    borderRadius: 2,
+                                    cursor: 'pointer',
+                                    height: 32,
+                                    bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                    '&:hover': { bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' },
+                                    mb: 0.25,
+                                    transition: 'all 0.2s',
+                                    flexShrink: 0
+                                }}
+                            >
+                                <SmartToyIcon sx={{ fontSize: 16, opacity: 0.8 }} />
+                                <Typography sx={{
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    maxWidth: { xs: 60, sm: 120 },
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    {currentModel || 'AI Model'}
+                                </Typography>
+                                <KeyboardArrowDownIcon sx={{ fontSize: 14, opacity: 0.5 }} />
+                            </Box>
+
                             <TextField
                                 fullWidth
                                 multiline
@@ -1320,7 +1451,8 @@ const ChatPage: React.FC = () => {
                     </Box>
                 </Box>
             </Box>
-            {/* Share Dialog */}
+
+            {/* Dialogs and Menus */}
             <Dialog
                 open={shareDialogOpen}
                 onClose={() => setShareDialogOpen(false)}
@@ -1388,7 +1520,7 @@ const ChatPage: React.FC = () => {
                                 }
                             }}
                         >
-                            Delete
+                            Revoke
                         </Button>
                         <Button
                             disableElevation
@@ -1411,10 +1543,70 @@ const ChatPage: React.FC = () => {
                         </Button>
                     </Box>
                 </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
+                <DialogActions sx={{ p: 1 }}>
+                    <Button onClick={() => setShareDialogOpen(false)}>Done</Button>
                 </DialogActions>
             </Dialog>
 
+            {/* Quick Model Switch Menu */}
+            <Menu
+                anchorEl={modelMenuAnchor}
+                open={Boolean(modelMenuAnchor)}
+                onClose={() => setModelMenuAnchor(null)}
+                PaperProps={{
+                    sx: {
+                        bgcolor: resolvedMode === 'dark' ? '#1a1a1a' : '#fff',
+                        color: resolvedMode === 'dark' ? '#fff' : '#0a0a0a',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        minWidth: 200,
+                        maxHeight: 400,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                        borderRadius: 3,
+                        mt: -1
+                    }
+                }}
+                transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                anchorOrigin={{ horizontal: 'left', vertical: 'top' }}
+            >
+                <Box sx={{ px: 2, py: 1.5 }}>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {aiProvider} Models
+                    </Typography>
+                </Box>
+                <Divider sx={{ opacity: 0.1 }} />
+                <Box sx={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {availableModels.map(m => (
+                        <MenuItem
+                            key={m.id}
+                            selected={m.id === currentModel}
+                            onClick={() => handleModelSwitch(m.id)}
+                            sx={{
+                                fontSize: 13,
+                                py: 1,
+                                px: 2,
+                                '&.Mui-selected': {
+                                    bgcolor: 'primary.main',
+                                    color: '#fff',
+                                    '&:hover': { bgcolor: 'primary.dark' }
+                                }
+                            }}
+                        >
+                            <ListItemText
+                                primary={m.name}
+                                primaryTypographyProps={{ fontSize: 13, fontWeight: m.id === currentModel ? 600 : 400 }}
+                            />
+                        </MenuItem>
+                    ))}
+                    {availableModels.length === 0 && !isLoadingModels && (
+                        <MenuItem disabled sx={{ fontSize: 13 }}>No models found</MenuItem>
+                    )}
+                    {isLoadingModels && (
+                        <MenuItem disabled sx={{ py: 2, justifyContent: 'center' }}>
+                            <CircularProgress size={20} />
+                        </MenuItem>
+                    )}
+                </Box>
+            </Menu>
 
             {/* Context Menu for Chats */}
             <Menu

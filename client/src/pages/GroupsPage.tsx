@@ -1,8 +1,7 @@
-
-import React, { useState, useEffect } from 'react';
-import { Box, Container, Typography, List, ListItem, ListItemButton, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Tooltip, Drawer, Avatar, Menu, MenuItem } from '@mui/material';
+import { Box, Container, Typography, List, ListItem, ListItemButton, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Tooltip, Drawer, Avatar, Menu, MenuItem, useMediaQuery, useTheme } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import { useNavigate } from 'react-router-dom';
-
+import React, { useState, useEffect } from 'react';
 import GroupIcon from '@mui/icons-material/Group';
 import GroupsIcon from '@mui/icons-material/Groups';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -21,6 +20,13 @@ const GroupsPage: React.FC = () => {
     const { resolvedMode } = useThemeMode();
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+
+    useEffect(() => {
+        setSidebarOpen(!isMobile);
+    }, [isMobile]);
 
     // Groups State
     const [groups, setGroups] = useState<any[]>([]);
@@ -136,8 +142,9 @@ const GroupsPage: React.FC = () => {
         <Box sx={{ display: 'flex', height: '100vh', bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#ffffff' }}>
             {/* Sidebar */}
             <Drawer
-                variant="persistent"
-                open={true}
+                variant={isMobile ? 'temporary' : 'persistent'}
+                open={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
                 sx={{
                     width: DRAWER_WIDTH,
                     flexShrink: 0,
@@ -146,8 +153,6 @@ const GroupsPage: React.FC = () => {
                         boxSizing: 'border-box',
                         bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#f5f5f5',
                         borderRight: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
-                        '&::-webkit-scrollbar': { display: 'none' },
-                        scrollbarWidth: 'none',
                     },
                 }}
             >
@@ -166,9 +171,13 @@ const GroupsPage: React.FC = () => {
                 </Box>
 
                 {/* Chat List */}
-                <Box sx={{ flex: 1, overflowY: 'auto', px: 1 }}>
+                <Box sx={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    px: 1,
+                }}>
                     <List disablePadding>
-                        {chats.filter(c => !c.isGrouped).map(chat => (
+                        {chats.filter((c: any) => !c.isGrouped).map((chat: any) => (
                             <ListItemButton
                                 key={chat._id}
                                 onClick={() => selectChat(chat._id)}
@@ -210,13 +219,13 @@ const GroupsPage: React.FC = () => {
                     </List>
 
                     {/* Group Chats (Active) */}
-                    {chats.some(c => c.isGrouped) && (
+                    {chats.some((c: any) => c.isGrouped) && (
                         <>
                             <Typography sx={{ px: 1.5, pt: 2, pb: 0.5, fontSize: 11, opacity: 0.4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Group Chats
                             </Typography>
                             <List disablePadding>
-                                {chats.filter(c => c.isGrouped).map(chat => (
+                                {chats.filter((c: any) => c.isGrouped).map((chat: any) => (
                                     <ListItemButton
                                         key={chat._id}
                                         onClick={() => selectChat(chat._id)}
@@ -333,6 +342,11 @@ const GroupsPage: React.FC = () => {
                     p: 2,
                     borderBottom: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
                 }}>
+                    {isMobile && (
+                        <IconButton onClick={() => setSidebarOpen(true)} size="small" sx={{ mr: 1 }}>
+                            <MenuIcon />
+                        </IconButton>
+                    )}
                     <Typography variant="h6" fontWeight={600}>Manage Groups</Typography>
                     <GlassButton variant="contained" size="small" onClick={() => setOpenDialog(true)}>
                         + New Group
@@ -340,7 +354,30 @@ const GroupsPage: React.FC = () => {
                 </Box>
 
                 {/* Groups Content */}
-                <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
+                <Box sx={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    p: isMobile ? 2 : 3,
+                    // Visible scrollbar styling for main content
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.3) transparent' : 'rgba(0,0,0,0.3) transparent',
+                    '&::-webkit-scrollbar': {
+                        width: '8px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                        bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+                        borderRadius: '4px',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                        bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
+                        borderRadius: '4px',
+                        border: '2px solid transparent',
+                        backgroundClip: 'padding-box',
+                        '&:hover': {
+                            bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+                        },
+                    },
+                }}>
                     <Container maxWidth="md">
                         <GlassCard sx={{ p: 0, bgcolor: 'transparent', boxShadow: 'none' }}>
                             {groups.length === 0 ? (
@@ -350,7 +387,7 @@ const GroupsPage: React.FC = () => {
                                 </Box>
                             ) : (
                                 <List>
-                                    {groups.map(group => (
+                                    {groups.map((group: any) => (
                                         <ListItem key={group._id}
                                             sx={{
                                                 mb: 2,
@@ -369,12 +406,12 @@ const GroupsPage: React.FC = () => {
                                                 <ListItemText
                                                     primary={group.name}
                                                     secondary={
-                                                        <React.Fragment>
+                                                        <>
                                                             <Typography component="span" variant="body2" color="text.primary">
                                                                 {group.members.length} members
                                                             </Typography>
                                                             {group.description && ` — ${group.description}`}
-                                                        </React.Fragment>
+                                                        </>
                                                     }
                                                 />
                                             </ListItemButton>
