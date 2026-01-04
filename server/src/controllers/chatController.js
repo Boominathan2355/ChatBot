@@ -96,43 +96,35 @@ exports.sendMessage = async (req, res) => {
     const chatId = req.params.id;
 
     try {
-        const chat = await Chat.findOne({ _id: chatId, userId: req.user.id });
-        if (!chat) return res.status(404).json({ message: 'Chat not found' });
+        const currentChat = await Chat.findOne({ _id: chatId, userId: req.user.id });
+        if (!currentChat) return res.status(404).json({ message: 'Chat not found' });
 
-        const settings = await UserSettings.findOne({ userId: req.user.id });
-        const ollamaUrl = settings.ollamaBaseUrl;
-        const model = settings.defaultModel;
+        const settings = await UserSettings.findOne({ userId: req.user.id }) || {};
+        const ollamaUrl = settings.ollamaBaseUrl || 'http://localhost:11434';
+        const model = settings.defaultModel || 'mistral';
+
+        // Sanitize URL
+        const normalizedUrl = ollamaUrl.replace(/\/$/, '').replace(/\/api\/(chat|generate|embeddings|embed)$/, '');
+        const chatEndpoint = `${normalizedUrl}/api/chat`;
 
         // Perform RAG web search if enabled
         let searchContext = '';
         if (webSearch) {
             try {
-                // 1. Detect Intent
                 const isSearchNeeded = await searchService.detectIntent(content);
-
                 if (isSearchNeeded) {
-                    // 2. Focused Query Generation
                     const focusedQuery = await searchService.generateSearchQuery(content);
-
-                    // 3. Search & Process
                     const searchData = await searchService.performSearch(focusedQuery);
                     searchContext = searchService.processResults(searchData);
-
-                    if (searchContext) {
-                        console.log('✅ RAG Search Context retrieved, length:', searchContext.length);
-                    }
                 }
             } catch (searchError) {
                 console.error('❌ RAG Search failed:', searchError.message);
             }
         }
 
-        // Add user message
-        chat.messages.push({ role: 'user', content, image });
-        await chat.save();
-
-        // Prepare history for Ollama with sliding window
-        const HISTORY_WINDOW_SIZE = settings.historyWindowSize || 20;
+        // Add user message to DB
+        currentChat.messages.push({ role: 'user', content, image });
+        await currentChat.save();
 
         // Perform Document RAG if applicable
         let docContext = '';
@@ -145,113 +137,136 @@ exports.sendMessage = async (req, res) => {
             console.error('❌ Document RAG failed:', docError.message);
         }
 
-        // Get last N messages
-        const recentMessages = chat.messages.slice(-HISTORY_WINDOW_SIZE);
+        // Prepare context for Ollama
+        const HISTORY_WINDOW_SIZE = settings.historyWindowSize || 20;
+        const recentMessages = currentChat.messages.slice(-HISTORY_WINDOW_SIZE);
 
         const history = recentMessages.map(m => {
             const msgObj = {
                 role: m.role,
-                content: m.content
+                content: m.content || (m.role === 'user' ? (m.image ? 'Analyzing image...' : '...') : '...')
             };
             if (m.image && m.image.url) {
-                // Extract raw base64 from data URL if present
-                const base64 = m.image.url.includes(',')
-                    ? m.image.url.split(',')[1]
-                    : m.image.url;
-                msgObj.images = [base64];
+                const base64 = m.image.url.includes(',') ? m.image.url.split(',')[1] : m.image.url;
+                if (base64) msgObj.images = [base64];
             }
             return msgObj;
         });
 
-        // Inject system instructions as first message
-        if (settings.systemInstructions) {
-            history.unshift({ role: 'system', content: settings.systemInstructions });
+        // 🔥 OPTIMIZED: Send ONLY the most recent image to avoid 400 errors
+        // Keep full text history, but limit vision processing to the last image
+        let foundImage = false;
+        for (let i = history.length - 1; i >= 0; i--) {
+            if (history[i].images) {
+                if (foundImage) {
+                    // This is an older image, remove it but keep the text
+                    delete history[i].images;
+                } else {
+                    // This is the most recent image, keep it
+                    foundImage = true;
+                }
+            }
         }
 
-        // Inject Document Context (Higher priority than web search if specific doc mentioned)
+        // Consolidate System Message
+        let unifiedSystemMessage = settings.systemInstructions || 'You are Jarvis, a helpful AI assistant.';
         if (docContext) {
-            history.push({
-                role: 'system',
-                content: `[Extracted Document Knowledge]\n${docContext}\n\nINSTRUCTION: The user is asking about specific documents they uploaded. Use the \"Extracted Document Knowledge\" above to provide a factually accurate answer. Strictly ground your response in these document sources. If the information is not present in the document, say you don't know based on the provided library. Use citations like [Doc 1], [Doc 2].`
-            });
+            unifiedSystemMessage += `\n\n[EXTRACTED DOCUMENT KNOWLEDGE]\n${docContext}\n\nINSTRUCTION: Ground your response in these sources. Cite as [Doc 1], etc.`;
         }
-
-        // Inject web search results as context (RAG)
         if (searchContext) {
-            history.push({
-                role: 'system',
-                content: `[Grounded Knowledge Base]\n${searchContext}\n\nINSTRUCTION: The user has asked a question that requires fresh or specific information. Use the "Grounded Knowledge Base" above to provide a factually accurate answer. Strictly ground your response in these sources. If the information is not present, say you don't know based on modern search results. Use citations like [1], [2] where appropriate.`
-            });
+            unifiedSystemMessage += `\n\n[GROUNDED KNOWLEDGE BASE]\n${searchContext}\n\nINSTRUCTION: Ground your response in these search results. Cite as [1], [2], etc.`;
+        }
+        history.unshift({ role: 'system', content: unifiedSystemMessage });
+
+        // Auto-rename logic for first message
+        let newTitle = null;
+        if (currentChat.messages.length === 1 && currentChat.title === 'New Chat') {
+            try {
+                const titlePrompt = `Summarize the following user message into a very short, concise title (max 5 words). Output ONLY the title, no quotes, no punctuation, no extra text.\n\nUser Message: ${content}`;
+                const titleResponse = await axios.post(`${normalizedUrl}/api/generate`, {
+                    model,
+                    prompt: titlePrompt,
+                    stream: false
+                });
+                newTitle = titleResponse.data.response?.trim().replace(/^["']|["']$/g, '');
+                if (newTitle) {
+                    currentChat.title = newTitle;
+                    await currentChat.save();
+                    console.log(`🏷️  Auto-renamed chat to: ${newTitle}`);
+                }
+            } catch (titleError) {
+                console.error('❌ Title generation failed:', titleError.message);
+            }
         }
 
-        console.log(`📊 Sending ${history.length} messages to Ollama (${searchContext ? 'with web search' : 'no search'})`);
+        console.log(`📊 AI Request: [${model}] ${history.length} messages`);
+        console.log('📡 Payload Summary:', history.map(h => `${h.role} (${h.content?.length || 0} chars)${h.images ? ' + [Img]' : ''}`).join(' | '));
 
         const response = await axios({
             method: 'post',
-            url: `${ollamaUrl}/api/chat`,
+            url: chatEndpoint,
             headers: {
                 'Content-Type': 'application/json',
                 'ngrok-skip-browser-warning': 'true'
             },
             responseType: 'stream',
-            data: {
-                model,
-                messages: history,
-                stream: true
-            }
+            data: { model, messages: history, stream: true }
         });
 
-        // Set headers ONLY after successful connection
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        let assistantMessage = '';
+        // Send new title if generated
+        if (newTitle) {
+            res.write(`data: ${JSON.stringify({ title: newTitle })}\n\n`);
+        }
 
+        let assistantMessage = '';
         response.data.on('data', chunk => {
             const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
             for (const line of lines) {
                 try {
                     const json = JSON.parse(line);
-                    if (json.message && json.message.content) {
-                        const token = json.message.content;
-                        assistantMessage += token;
-                        res.write(`data: ${JSON.stringify({ content: token })}\n\n`);
+                    if (json.message?.content) {
+                        assistantMessage += json.message.content;
+                        res.write(`data: ${JSON.stringify({ content: json.message.content })}\n\n`);
                     }
-                    if (json.done) {
-                        // Stream finished
-                    }
-                } catch (e) {
-                    console.error('Error parsing JSON chunk', e);
-                }
+                } catch (e) { }
             }
         });
 
         response.data.on('end', async () => {
-            // Re-fetch chat to avoid VersionError if it was modified concurrently
             const latestChat = await Chat.findById(chatId);
-            if (latestChat) {
+            if (latestChat && assistantMessage.trim()) {
                 latestChat.messages.push({ role: 'assistant', content: assistantMessage });
                 latestChat.lastMessageAt = Date.now();
                 await latestChat.save();
             }
-
             res.write('data: [DONE]\n\n');
             res.end();
         });
 
         response.data.on('error', err => {
             console.error('Stream error:', err);
-            // If we already started sending data, we can't send JSON error
-            res.write(`data: ${JSON.stringify({ error: 'Stream failed' })}\n\n`);
-            res.end();
+            if (!res.headersSent) res.end();
+            else {
+                res.write(`data: ${JSON.stringify({ error: 'Stream failed' })}\n\n`);
+                res.end();
+            }
         });
 
     } catch (error) {
-        console.error('Send message error:', error);
-        // If headers not sent (axios failed), send JSON error.
+        console.error('Send message error:', error.message);
+        if (error.response) {
+            console.error(`📡 Ollama Error [${error.response.status}]: ${error.response.statusText || 'Bad Request'}`);
+            // Log error details safely without circular refs
+            if (error.response.data?.error) {
+                console.error('Error details:', error.response.data.error);
+            }
+        }
         if (!res.headersSent) {
-            res.status(500).json({ message: error.message });
+            res.status(error.response?.status || 500).json({ message: error.response?.data?.error || error.message });
         } else {
             res.end();
         }
@@ -262,6 +277,25 @@ exports.deleteChat = async (req, res) => {
     try {
         await Chat.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
         res.json({ message: 'Chat deleted' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Update chat (rename, pin, folder)
+exports.updateChat = async (req, res) => {
+    try {
+        const { title, isPinned, folder } = req.body;
+        const chat = await Chat.findOne({ _id: req.params.id, userId: req.user.id });
+
+        if (!chat) return res.status(404).json({ message: 'Chat not found' });
+
+        if (title !== undefined) chat.title = title;
+        if (isPinned !== undefined) chat.isPinned = isPinned;
+        if (folder !== undefined) chat.folder = folder;
+
+        await chat.save();
+        res.json(chat);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -295,39 +329,32 @@ exports.sendGroupMessage = async (req, res) => {
     try {
         const { chatId } = req.params;
         const { content, webSearch, image, documentId } = req.body;
-        const chat = await Chat.findOne({ _id: chatId, isGrouped: true }).populate('groupId');
-        if (!chat) return res.status(404).json({ message: 'Group chat not found' });
+        const currentChat = await Chat.findOne({ _id: chatId, isGrouped: true }).populate('groupId');
+        if (!currentChat) return res.status(404).json({ message: 'Group chat not found' });
 
-        // Verify user is a member of the group
-        const group = chat.groupId;
-        const isMember = group.members.some(m => m.userId.toString() === req.user.id) ||
-            group.ownerId.toString() === req.user.id;
-
+        const group = currentChat.groupId;
+        const isMember = group.members.some(m => m.userId.toString() === req.user.id) || group.ownerId.toString() === req.user.id;
         if (!isMember) return res.status(403).json({ message: 'Not a group member' });
 
-        // Create user message
         const userMessage = {
             role: 'user',
             content,
             image,
-            metadata: {
-                senderId: req.user.id,
-                senderName: req.user.username || req.user.email
-            }
+            metadata: { senderId: req.user.id, senderName: req.user.username || req.user.email }
         };
 
-        chat.messages.push(userMessage);
-        chat.lastMessageAt = Date.now();
-        await chat.save();
+        currentChat.messages.push(userMessage);
+        currentChat.lastMessageAt = Date.now();
+        await currentChat.save();
 
-        // Initialize AI response
         const settings = await UserSettings.findOne({ userId: req.user.id }) || {};
         const ollamaUrl = settings.ollamaBaseUrl || 'http://localhost:11434';
         const model = settings.defaultModel || 'mistral';
         const HISTORY_WINDOW_SIZE = settings.historyWindowSize || 20;
 
+        const normalizedUrl = ollamaUrl.replace(/\/$/, '').replace(/\/api\/(chat|generate|embeddings|embed)$/, '');
+        const chatEndpoint = `${normalizedUrl}/api/chat`;
 
-        // Perform Document RAG if applicable
         let docContext = '';
         try {
             // Note: In groups, we could potentially search documents shared with the group
@@ -340,7 +367,6 @@ exports.sendGroupMessage = async (req, res) => {
             console.error('❌ Document RAG failed in Group:', docError.message);
         }
 
-        // Perform RAG web search if enabled
         let searchContext = '';
         if (webSearch) {
             try {
@@ -355,54 +381,52 @@ exports.sendGroupMessage = async (req, res) => {
             }
         }
 
-        // Prepare context for AI (last 20 messages)
-        const recentMessages = chat.messages.slice(-HISTORY_WINDOW_SIZE).map(m => {
+        const recentMessages = currentChat.messages.slice(-HISTORY_WINDOW_SIZE).map(m => {
             const msgObj = {
                 role: m.role,
-                content: m.content
+                content: m.content || (m.role === 'user' ? (m.image ? 'Image prompt' : '...') : '...')
             };
             if (m.image && m.image.url) {
-                const base64 = m.image.url.includes(',')
-                    ? m.image.url.split(',')[1]
-                    : m.image.url;
-                msgObj.images = [base64];
+                const base64 = m.image.url.includes(',') ? m.image.url.split(',')[1] : m.image.url;
+                if (base64) msgObj.images = [base64];
             }
             return msgObj;
         });
 
-        if (settings.systemInstructions) {
-            recentMessages.unshift({ role: 'system', content: settings.systemInstructions });
+        // OPTIMIZED: Send only the most recent image in group chat
+        let foundImage = false;
+        for (let i = recentMessages.length - 1; i >= 0; i--) {
+            if (recentMessages[i].images) {
+                if (foundImage) {
+                    delete recentMessages[i].images;
+                } else {
+                    foundImage = true;
+                }
+            }
         }
 
-        // Inject Document Context (Higher priority than web search)
+        let unifiedSystemMessage = settings.systemInstructions || 'You are Jarvis, a helpful AI assistant in a GROUP chat.';
         if (docContext) {
-            recentMessages.push({
-                role: 'system',
-                content: `[Extracted Document Knowledge]\n${docContext}\n\nINSTRUCTION: The user is asking about specific documents they uploaded. Use the \"Extracted Document Knowledge\" above to provide a factually accurate answer in this GROUP chat. Strictly ground your response in these document sources. If the information is not present, say it is not in the library. Use citations like [Doc 1].`
-            });
+            unifiedSystemMessage += `\n\n[EXTRACTED DOCUMENT KNOWLEDGE]\n${docContext}\n\nINSTRUCTION: Ground your response in these sources. Cite as [Doc 1], etc.`;
         }
-
-        // Inject web search results as context (RAG)
         if (searchContext) {
-            recentMessages.push({
-                role: 'system',
-                content: `[Grounded Knowledge Base]\n${searchContext}\n\nINSTRUCTION: The user has asked a question in a GROUP chat that requires fresh or specific information. Use the "Grounded Knowledge Base" above to provide a factually accurate answer. Strictly ground your response in these sources. If the information is not present, say you don't know based on modern search results. Use citations like [1], [2] where appropriate.`
-            });
+            unifiedSystemMessage += `\n\n[GROUNDED KNOWLEDGE BASE]\n${searchContext}\n\nINSTRUCTION: Ground your response in these search results. Cite as [1], [2], etc.`;
         }
+        recentMessages.unshift({ role: 'system', content: unifiedSystemMessage });
 
-        console.log(`👥 Group Chat: Sending ${recentMessages.length} messages to Ollama (${searchContext ? 'with RAG search' : 'no search'})`);
+        console.log(`👥 Group Chat: [${model}] ${recentMessages.length} messages`);
+        console.log('📡 Group Payload Summary:', recentMessages.map(h => `${h.role} (${h.content?.length || 0} chars)${h.images ? ' + [Img]' : ''}`).join(' | '));
 
         try {
             const response = await axios({
                 method: 'post',
-                url: `${ollamaUrl}/api/chat`,
-                headers: { 'Content-Type': 'application/json' },
+                url: chatEndpoint,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 responseType: 'stream',
-                data: {
-                    model,
-                    messages: recentMessages,
-                    stream: true
-                }
+                data: { model, messages: recentMessages, stream: true }
             });
 
             // Set headers after successful AI connection
@@ -421,10 +445,9 @@ exports.sendGroupMessage = async (req, res) => {
                 for (const line of lines) {
                     try {
                         const json = JSON.parse(line);
-                        if (json.message && json.message.content) {
-                            const token = json.message.content;
-                            assistantMessage += token;
-                            res.write(`data: ${JSON.stringify({ content: token })}\n\n`);
+                        if (json.message?.content) {
+                            assistantMessage += json.message.content;
+                            res.write(`data: ${JSON.stringify({ content: json.message.content })}\n\n`);
                         }
                     } catch (e) { }
                 }
@@ -433,7 +456,7 @@ exports.sendGroupMessage = async (req, res) => {
             response.data.on('end', async () => {
                 // Re-fetch chat to avoid VersionError if it was modified concurrently
                 const latestChat = await Chat.findById(chatId);
-                if (latestChat) {
+                if (latestChat && assistantMessage.trim()) {
                     latestChat.messages.push({
                         role: 'assistant',
                         content: assistantMessage,
@@ -447,12 +470,16 @@ exports.sendGroupMessage = async (req, res) => {
                 res.end();
             });
 
-        } catch (aiError) {
-            console.error('AI Error in Group:', aiError.message);
-            // If AI fails, still return success for the user message
-            // But since we want streaming pattern, we might send an error packet or just end
+        } catch (error) {
+            console.error('AI Error in Group:', error.message);
+            if (error.response) {
+                console.error(`📡 Ollama Group Error [${error.response.status}]: ${error.response.statusText || 'Bad Request'}`);
+                if (error.response.data?.error) {
+                    console.error('Error details:', error.response.data.error);
+                }
+            }
             if (!res.headersSent) {
-                res.json({ message: 'Message sent (AI unavailable)', data: message });
+                res.status(error.response?.status || 500).json({ message: error.response?.data?.error || error.message });
             } else {
                 res.write(`data: ${JSON.stringify({ error: 'AI unavailable' })}\n\n`);
                 res.end();

@@ -7,6 +7,7 @@ const {
     getChatMessages,
     sendMessage,
     sendGroupMessage,
+    updateChat,
     deleteChat,
     bulkDelete,
     shareChat,
@@ -24,10 +25,10 @@ router.get('/:id/messages', protect, getChatMessages);
 router.post('/:id/send', protect, sendMessage);
 router.post('/:id/group-message', protect, sendGroupMessage);
 // Update chat (rename, pin, folder)
-router.patch('/:id', protect, chatController.updateChat);
+router.patch('/:id', protect, updateChat);
 
 // Delete a chat
-router.delete('/:id', protect, chatController.deleteChat);
+router.delete('/:id', protect, deleteChat);
 router.post('/bulk-delete', protect, bulkDelete);
 
 // Share routes

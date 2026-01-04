@@ -4,24 +4,29 @@ const UserSettings = require('../models/UserSettings');
 
 class VectorService {
     async generateEmbedding(text, userId) {
+        let model, ollamaUrl; // Declare outside try-catch for error logging
         try {
             const settings = await UserSettings.findOne({ userId });
-            const ollamaUrl = settings?.ollamaBaseUrl || 'http://localhost:11434';
+            ollamaUrl = settings?.ollamaBaseUrl || 'http://localhost:11434';
+            model = settings?.embeddingModel || 'nomic-embed-text';
 
-            // Note: Some embedding models might be different from chat models (e.g. 'nomic-embed-text' or 'mxbai-embed-large')
-            // For simplicity, we use the default model or a known embed model if specified
-            const model = settings?.embeddingModel || 'nomic-embed-text';
+            // Sanitize URL: Remove any trailing slashes or legacy endpoints if entered by mistake
+            const normalizedUrl = ollamaUrl.replace(/\/$/, '').replace(/\/api\/(embeddings|embed)$/, '');
+            const endpoint = `${normalizedUrl}/api/embed`;
 
-            const response = await axios.post(`${ollamaUrl}/api/embeddings`, {
+            const response = await axios.post(endpoint, {
                 model: model,
-                prompt: text
+                input: text
             });
 
-            return response.data.embedding;
+            return response.data.embeddings[0]; // /api/embed returns 'embeddings' array
         } catch (error) {
-            console.error('Embedding generation failed:', error.message);
-            // Fallback: If specialized embed model fails, try with the chat model if it supports it
-            // or return a zero vector (not ideal but avoids crash)
+            const errorMsg = error.response?.data?.error || error.message;
+            console.error(`❌ Embedding generation failed (${model || 'unknown model'} @ ${ollamaUrl || 'unknown URL'}):`, errorMsg);
+
+            if (error.response?.status === 404) {
+                console.error(`💡 TIP: Make sure to pull the embedding model using: ollama pull ${model || 'nomic-embed-text'}`);
+            }
             return null;
         }
     }

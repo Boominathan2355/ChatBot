@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Box, Drawer, List, ListItemButton, ListItemText, TextField, IconButton, Typography, Avatar, Tooltip, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, ListItemIcon, Divider } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import StopCircleIcon from '@mui/icons-material/StopCircle';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -11,6 +12,7 @@ import LanguageIcon from '@mui/icons-material/Language';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useAuthStore } from '../store/useAuthStore';
 import api from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -89,6 +91,10 @@ const ChatPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
+    // Edit Message State
+    const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
+    const [editedContent, setEditedContent] = useState('');
+
     // Chat Management State
     const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; chatId: string } | null>(null);
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -142,11 +148,12 @@ const ChatPage: React.FC = () => {
         fetchGroups();
     }, []);
 
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [messages]);
+    // Auto-scroll disabled per user request
+    // useEffect(() => {
+    //     if (scrollRef.current) {
+    //         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    //     }
+    // }, [messages]);
 
     const fetchChats = async () => {
         try {
@@ -269,6 +276,14 @@ const ChatPage: React.FC = () => {
     };
 
     const selectChat = async (id: string) => {
+        // Reset loading states when switching chats
+        setIsLoading(false);
+        setIsSearching(false);
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+
         setCurrentChatId(id);
         const chat = chats.find(c => c._id === id);
         setCurrentChat(chat);
@@ -393,11 +408,14 @@ const ChatPage: React.FC = () => {
 
             if (webSearchEnabled && !isGroupChat(currentChat)) setIsSearching(true);
 
+            // Add AI placeholder immediately for responsiveness
+            setMessages(prev => [...prev, { role: 'assistant', content: '', metadata: { senderName: 'Jarvis' } }]);
+
             // Unified streaming logic for both Direct and Group chats
             const endpoint = isGroupChat(currentChat)
                 ? `/api/chats/${currentChatId}/group-message`
                 : `/api/chats/${currentChatId}/send`;
-            
+
             // Setup AbortController for stopping generation
             const controller = new AbortController();
             abortControllerRef.current = controller;
@@ -424,75 +442,183 @@ const ChatPage: React.FC = () => {
                 throw new Error(errorData.message || 'Failed to send message');
             }
 
-            const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
-            let assistantContent = '';
-            let buffer = '';
+            await executeAIStep(response);
+        } catch (e: any) {
+            handleAIError(e);
+        } finally {
+            setIsLoading(false);
+            abortControllerRef.current = null;
+        }
+    };
 
-            // Group Chat: AI is "Jarvis", Direct Chat: AI is "assistant"
-            // For Direct Chat, we optimistically add "assistant".
-            // For Group Chat, we should wait? But user want "live typing".
-            // Let's assume response is ALWAYS AI.
-            // But wait, Group Chat might return JUST the user message if AI fails?
-            // The streaming backend sends user confirmation? No, I skipped that.
-            // It sends AI tokens.
+    const executeAIStep = async (response: Response) => {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let assistantContent = '';
+        let buffer = '';
 
-            // So we add a placeholder for the incoming AI message
-            setMessages(prev => [...prev, { role: 'assistant', content: '', metadata: { senderName: 'Jarvis' } }]);
+        if (!reader) return;
 
-            while (true) {
-                const { done, value } = await reader?.read()!;
-                if (done) break;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-                const chunk = decoder.decode(value, { stream: true });
-                buffer += chunk;
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
 
-                const lines = buffer.split('\n\n');
-                buffer = lines.pop() || '';
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || '';
 
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.startsWith('data: ')) {
-                        const dataStr = trimmedLine.replace('data: ', '');
-                        if (dataStr === '[DONE]') break;
-                        try {
-                            const json = JSON.parse(dataStr);
-                            if (json.content) {
-                                assistantContent += json.content;
-                                setMessages(prev => {
-                                    const newMessages = [...prev];
-                                    const lastMsg = newMessages[newMessages.length - 1];
-                                    // Ensure we are updating the AI placeholder
-                                    if (lastMsg.role === 'assistant') {
-                                        lastMsg.content = assistantContent;
-                                    }
-                                    return newMessages;
-                                });
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine.startsWith('data: ')) {
+                    const dataStr = trimmedLine.replace('data: ', '');
+                    if (dataStr === '[DONE]') break;
+                    try {
+                        const json = JSON.parse(dataStr);
+                        if (json.title) {
+                            const updatedTitle = json.title;
+                            setChats(prev => prev.map(c => c._id === currentChatId ? { ...c, title: updatedTitle } : c));
+                            if (currentChatId) {
+                                setCurrentChat((prev: any) => prev ? { ...prev, title: updatedTitle } : null);
                             }
-                        } catch (e) { }
+                        }
+                        if (json.content) {
+                            assistantContent += json.content;
+                            setMessages(prev => {
+                                const newMessages = [...prev];
+                                const lastMsg = newMessages[newMessages.length - 1];
+                                if (lastMsg.role === 'assistant') {
+                                    lastMsg.content = assistantContent;
+                                }
+                                return newMessages;
+                            });
+                        }
+                    } catch (e) { }
+                }
+            }
+        }
+
+        // Process any leftover content in buffer (e.g. final token that didn't end in \n\n)
+        if (buffer.trim().startsWith('data: ')) {
+            try {
+                const dataStr = buffer.trim().replace('data: ', '');
+                if (dataStr !== '[DONE]') {
+                    const json = JSON.parse(dataStr);
+                    if (json.title) {
+                        const updatedTitle = json.title;
+                        setChats(prev => prev.map(c => c._id === currentChatId ? { ...c, title: updatedTitle } : c));
+                        if (currentChatId) {
+                            setCurrentChat((prev: any) => prev ? { ...prev, title: updatedTitle } : null);
+                        }
+                    }
+                    if (json.content) {
+                        assistantContent += json.content;
+                        setMessages(prev => {
+                            const newMessages = [...prev];
+                            const lastMsg = newMessages[newMessages.length - 1];
+                            if (lastMsg.role === 'assistant') lastMsg.content = assistantContent;
+                            return newMessages;
+                        });
+                    }
+                }
+            } catch (e) { }
+        }
+    };
+
+    const handleAIError = (e: any) => {
+        if (e.name === 'AbortError') {
+            console.log('🛑 Generation stopped by user');
+            return;
+        }
+        console.error(e);
+        setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last.role === 'assistant' && !last.content) {
+                return prev.slice(0, -1);
+            }
+            return [...prev, {
+                role: 'system',
+                content: `Error: ${e.message || 'Something went wrong.'}`
+            }];
+        });
+    };
+
+    const handleRegenerate = async (index?: number) => {
+        if (isLoading || isUploading || !currentChatId || messages.length < 1) return;
+
+        let targetUserMsg: any = null;
+        let assistantMsgIndex = -1;
+
+        if (index !== undefined) {
+            const msg = messages[index];
+            if (msg.role === 'user') {
+                targetUserMsg = msg;
+                // If the next message is assistant, we replace it.
+                if (index + 1 < messages.length && messages[index + 1].role === 'assistant') {
+                    assistantMsgIndex = index + 1;
+                }
+            } else if (msg.role === 'assistant') {
+                assistantMsgIndex = index;
+                // Find the user message before this one
+                for (let i = index - 1; i >= 0; i--) {
+                    if (messages[i].role === 'user') {
+                        targetUserMsg = messages[i];
+                        break;
                     }
                 }
             }
-        } catch (e: any) {
-            if (e.name === 'AbortError') {
-                console.log('🛑 Generation stopped by user');
-                return;
+        } else {
+            // Default: find last user message
+            targetUserMsg = [...messages].reverse().find(m => m.role === 'user');
+            if (messages[messages.length - 1].role === 'assistant') {
+                assistantMsgIndex = messages.length - 1;
             }
-            console.error(e);
-            // Remove the empty assistant message if it failed immediately
-            setMessages(prev => {
-                const last = prev[prev.length - 1];
-                if (last.role === 'assistant' && !last.content) {
-                    return prev.slice(0, -1);
-                }
-                // Determine if we should append a localized error message
-                // If the error seems to be "Failed to fetch", it might be network.
-                // If it's a backend 500, we already threw "Failed to send message".
-                return [...prev, {
-                    role: 'system',
-                    content: `Error: ${e.message || 'Something went wrong. Please check if Ollama is running.'}`
-                }];
+        }
+
+        if (!targetUserMsg) return;
+
+        // Optimistically clear/add the AI message placeholder
+        setMessages(prev => {
+            const newMsgs = [...prev];
+            const placeholder = { role: 'assistant', content: '', metadata: { senderName: 'Jarvis' } };
+
+            if (assistantMsgIndex !== -1) {
+                newMsgs[assistantMsgIndex] = placeholder;
+            } else {
+                newMsgs.push(placeholder);
+            }
+            return newMsgs;
+        });
+
+        setIsLoading(true);
+        try {
+            const endpoint = isGroupChat(currentChat)
+                ? `/api/chats/${currentChatId}/group-message`
+                : `/api/chats/${currentChatId}/send`;
+
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    content: targetUserMsg.content,
+                    image: targetUserMsg.image,
+                    webSearch: webSearchEnabled,
+                    documentId: targetUserMsg.metadata?.documentId
+                })
             });
+
+            if (!response.ok) throw new Error('Regeneration failed');
+            await executeAIStep(response);
+        } catch (e) {
+            handleAIError(e);
         } finally {
             setIsLoading(false);
             abortControllerRef.current = null;
@@ -513,6 +639,44 @@ const ChatPage: React.FC = () => {
             e.preventDefault();
             handleSend();
         }
+    };
+
+    const handleCopy = async (content: string) => {
+        try {
+            await navigator.clipboard.writeText(content);
+            // You could add a toast notification here if you want
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    };
+
+    const handleEditMessage = (index: number, content: string) => {
+        setEditingMessageIndex(index);
+        setEditedContent(content);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingMessageIndex(null);
+        setEditedContent('');
+    };
+
+    const handleSaveEdit = async (index: number) => {
+        if (!editedContent.trim() || !currentChatId) return;
+
+        // Update the message content locally
+        const updatedMessages = [...messages];
+        updatedMessages[index] = { ...updatedMessages[index], content: editedContent };
+
+        // Remove any assistant messages after this one
+        const messagesToKeep = updatedMessages.slice(0, index + 1);
+        setMessages(messagesToKeep);
+
+        // Clear edit state
+        setEditingMessageIndex(null);
+        setEditedContent('');
+
+        // Trigger regeneration with the edited message
+        await handleRegenerate(index);
     };
 
     return (
@@ -846,30 +1010,180 @@ const ChatPage: React.FC = () => {
                                 >
                                     {msg.role === 'user' ? <PersonIcon sx={{ fontSize: 16 }} /> : <SmartToyIcon sx={{ fontSize: 16 }} />}
                                 </Avatar>
-                                <Box sx={{ flex: 1, pt: 0.25, display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                                <Box sx={{
+                                    flex: 1,
+                                    pt: 0.25,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                                    width: editingMessageIndex === i ? '100%' : 'auto'
+                                }}>
                                     <Typography sx={{ fontWeight: 600, fontSize: 13, mb: 0.5, opacity: 0.6 }}>
                                         {msg.role === 'user' ? 'You' : 'Jarvis'}
                                     </Typography>
-                                    {msg.image && (
-                                        <ImageMessage
-                                            src={msg.image.url}
-                                            width={msg.image.width}
-                                            height={msg.image.height}
-                                            resolvedMode={resolvedMode}
-                                        />
+
+                                    {/* Message Container/Bubble */}
+                                    <Box
+                                        sx={{
+                                            minWidth: editingMessageIndex === i ? '350px' : 'auto',
+                                            maxWidth: editingMessageIndex === i ? '95%' : '75%',
+                                            width: editingMessageIndex === i ? '95%' : 'auto',
+                                            bgcolor: msg.role === 'user'
+                                                ? (resolvedMode === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)')
+                                                : (resolvedMode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'),
+                                            borderRadius: 1,
+                                            px: 2,
+                                            py: 1.5,
+                                            border: resolvedMode === 'dark'
+                                                ? '1px solid rgba(255, 255, 255, 0.08)'
+                                                : '1px solid rgba(0, 0, 0, 0.06)',
+                                            transition: 'max-width 0.2s ease-in-out',
+                                        }}
+                                    >
+                                        {msg.image && (
+                                            <ImageMessage
+                                                src={msg.image.url}
+                                                width={msg.image.width}
+                                                height={msg.image.height}
+                                                resolvedMode={resolvedMode}
+                                            />
+                                        )}
+                                        {/* Show editable TextField if editing this message */}
+                                        {editingMessageIndex === i ? (
+                                            <Box>
+                                                <TextField
+                                                    fullWidth
+                                                    multiline
+                                                    value={editedContent}
+                                                    onChange={(e) => setEditedContent(e.target.value)}
+                                                    autoFocus
+                                                    variant="standard"
+                                                    sx={{
+                                                        '& .MuiInput-root': {
+                                                            fontSize: 14,
+                                                        }
+                                                    }}
+                                                />
+                                                <Box sx={{ mt: 1, display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={handleCancelEdit}
+                                                        sx={{ textTransform: 'none', fontSize: 11 }}
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        variant="contained"
+                                                        onClick={() => handleSaveEdit(i)}
+                                                        sx={{ textTransform: 'none', fontSize: 10, py: 0.3, px: 1.2, minWidth: 'auto' }}
+                                                    >
+                                                        Resend
+                                                    </Button>
+                                                </Box>
+                                            </Box>
+                                        ) : (
+                                            <>
+                                                {msg.content && <MessageRenderer content={msg.content} role={msg.role} />}
+                                                {!msg.content && msg.role === 'assistant' && i === messages.length - 1 && isLoading && (
+                                                    <Box sx={{ pt: 0.5 }}><CircularProgress size={14} /></Box>
+                                                )}
+                                            </>
+                                        )}
+                                    </Box>
+
+                                    {/* Action Buttons */}
+                                    {!isLoading && editingMessageIndex !== i && (
+                                        <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                                            {/* Copy Button - Show for all messages with content */}
+                                            {msg.content && (
+                                                <Tooltip title="Copy">
+                                                    <Button
+                                                        size="small"
+                                                        onClick={() => handleCopy(msg.content)}
+                                                        startIcon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
+                                                        sx={{
+                                                            opacity: 0.5,
+                                                            '&:hover': { opacity: 1, bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                                                            textTransform: 'none',
+                                                            fontSize: 11,
+                                                            py: 0.2,
+                                                            minWidth: 'auto',
+                                                            color: 'inherit'
+                                                        }}
+                                                    >
+                                                        Copy
+                                                    </Button>
+                                                </Tooltip>
+                                            )}
+                                            {/* Edit Button - Only for user messages */}
+                                            {msg.role === 'user' && msg.content && (
+                                                <Tooltip title="Edit">
+                                                    <Button
+                                                        size="small"
+                                                        onClick={() => handleEditMessage(i, msg.content)}
+                                                        startIcon={<EditIcon sx={{ fontSize: 14 }} />}
+                                                        sx={{
+                                                            opacity: 0.5,
+                                                            '&:hover': { opacity: 1, bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                                                            textTransform: 'none',
+                                                            fontSize: 11,
+                                                            py: 0.2,
+                                                            minWidth: 'auto',
+                                                            color: 'inherit'
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </Button>
+                                                </Tooltip>
+                                            )}
+                                            {/* Try Again Button - Only for user messages followed by errors */}
+                                            {msg.role === 'user' && i + 1 < messages.length && messages[i + 1].role === 'system' && (
+                                                <Tooltip title="Try Again">
+                                                    <Button
+                                                        size="small"
+                                                        onClick={() => handleRegenerate(i)}
+                                                        startIcon={<RefreshIcon sx={{ fontSize: 14 }} />}
+                                                        sx={{
+                                                            opacity: 0.5,
+                                                            '&:hover': { opacity: 1, bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                                                            textTransform: 'none',
+                                                            fontSize: 11,
+                                                            py: 0.2,
+                                                            minWidth: 'auto',
+                                                            color: 'inherit'
+                                                        }}
+                                                    >
+                                                        Try Again
+                                                    </Button>
+                                                </Tooltip>
+                                            )}
+                                            {/* Regenerate Button - Only for assistant messages */}
+                                            {msg.role === 'assistant' && (
+                                                <Tooltip title="Regenerate">
+                                                    <Button
+                                                        size="small"
+                                                        onClick={() => handleRegenerate(i)}
+                                                        startIcon={<RefreshIcon sx={{ fontSize: 14 }} />}
+                                                        sx={{
+                                                            opacity: 0.5,
+                                                            '&:hover': { opacity: 1, bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                                                            textTransform: 'none',
+                                                            fontSize: 11,
+                                                            py: 0.2,
+                                                            minWidth: 'auto',
+                                                            color: 'inherit'
+                                                        }}
+                                                    >
+                                                        Regenerate
+                                                    </Button>
+                                                </Tooltip>
+                                            )}
+                                        </Box>
                                     )}
-                                    {msg.content && <MessageRenderer content={msg.content} role={msg.role} />}
                                 </Box>
                             </Box>
                         ))}
-                        {isLoading && (
-                            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                                <Avatar sx={{ width: 28, height: 28, bgcolor: resolvedMode === 'dark' ? '#fff' : '#0a0a0a' }}>
-                                    <SmartToyIcon sx={{ fontSize: 16, color: resolvedMode === 'dark' ? '#0a0a0a' : '#fff' }} />
-                                </Avatar>
-                                <Box sx={{ pt: 0.5 }}><CircularProgress size={14} /></Box>
-                            </Box>
-                        )}
                     </Box>
                 </Box>
 

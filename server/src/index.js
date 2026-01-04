@@ -11,8 +11,9 @@ connectDB();
 
 const app = express();
 
-// Body parser
-app.use(express.json());
+// Body parser with increased limit for images/multimodal data
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
 // Enable CORS
 app.use(cors());
