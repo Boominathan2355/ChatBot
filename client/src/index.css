@@ -2,7 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Tri-color palette */
+  /* Tri-color palette (Default/Dark Base) */
   --color-primary: #00e5ff;
   --color-secondary: #bb86fc;
   --color-accent: #ff6b9d;
@@ -12,10 +12,12 @@
   --gradient-secondary: linear-gradient(135deg, #bb86fc 0%, #ff6b9d 100%);
   --gradient-accent: linear-gradient(135deg, #ff6b9d 0%, #00e5ff 100%);
 
-  /* Glass effect properties */
+  /* Default Glass vars (Dark fallback) */
   --glass-bg: rgba(16, 24, 48, 0.6);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-blur: blur(20px) saturate(180%);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+  --glass-text-color: rgba(255, 255, 255, 0.95);
 
   font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
   line-height: 1.6;
@@ -25,6 +27,27 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body.theme-light {
+  /* Light Theme Glass Override */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  /* Faint dark border */
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --glass-text-color: #0a0a0a;
+
+  /* Adjust gradients if needed (optional) */
+  --color-primary: #00b8d4;
+  --color-secondary: #9c27b0;
+}
+
+body.theme-dark {
+  /* Dark Theme Glass Explicit (Matches default mostly) */
+  --glass-bg: rgba(16, 24, 48, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+  --glass-text-color: rgba(255, 255, 255, 0.95);
 }
 
 * {
@@ -101,12 +124,12 @@ body.theme-dark ::-webkit-scrollbar-thumb:hover {
 
 /* Selection */
 ::selection {
-  background: rgba(0, 229, 255, 0.3);
+  background: #0846c2;
   color: #ffffff;
 }
 
 ::-moz-selection {
-  background: rgba(0, 229, 255, 0.3);
+  background: #0846c2;
   color: #ffffff;
 }
 
@@ -159,7 +182,8 @@ h6 {
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+  box-shadow: var(--glass-shadow);
+  color: var(--glass-text-color);
 }
 
 .gradient-text {

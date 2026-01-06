@@ -29,23 +29,23 @@ interface ThemeProviderProps {
 const COLORS = {
     dark: {
         bg: '#0a0a0a',
-        surface: 'rgba(18, 18, 18, 0.85)',
-        surfaceLight: 'rgba(28, 28, 28, 0.7)',
+        surface: 'rgba(20, 30, 50, 0.4)', // Much more transparent
+        surfaceLight: 'rgba(40, 50, 70, 0.3)',
         text: '#ffffff',
-        textSecondary: 'rgba(255, 255, 255, 0.6)',
-        border: 'rgba(255, 255, 255, 0.08)',
-        borderHover: 'rgba(255, 255, 255, 0.18)',
-        accent: '#ffffff',
+        textSecondary: 'rgba(255, 255, 255, 0.7)',
+        border: 'rgba(255, 255, 255, 0.1)',
+        borderHover: 'rgba(255, 255, 255, 0.2)',
+        accent: '#00e5ff', // Cyber blue accent
     },
     light: {
         bg: '#ffffff',
-        surface: 'rgba(255, 255, 255, 0.8)',
-        surfaceLight: 'rgba(245, 245, 245, 0.9)',
+        surface: 'rgba(255, 255, 255, 0.4)', // Much more transparent
+        surfaceLight: 'rgba(255, 255, 255, 0.3)',
         text: '#0a0a0a',
-        textSecondary: 'rgba(10, 10, 10, 0.6)',
-        border: 'rgba(0, 0, 0, 0.1)',
-        borderHover: 'rgba(0, 0, 0, 0.2)',
-        accent: '#0a0a0a',
+        textSecondary: 'rgba(10, 10, 10, 0.7)',
+        border: 'rgba(0, 0, 0, 0.08)',
+        borderHover: 'rgba(0, 0, 0, 0.15)',
+        accent: '#0070f3', // Blue accent
     }
 };
 
@@ -118,11 +118,12 @@ export const CustomThemeProvider: React.FC<ThemeProviderProps> = ({ children }) 
                             body: {
                                 backgroundColor: colors.bg,
                                 backgroundImage: resolvedMode === 'dark'
-                                    ? 'radial-gradient(circle at 20% 80%, rgba(60, 60, 60, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(80, 80, 80, 0.2) 0%, transparent 50%)'
-                                    : 'radial-gradient(circle at 20% 80%, rgba(200, 200, 200, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(230, 230, 230, 0.3) 0%, transparent 50%)',
+                                    ? 'radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.15) 0px, transparent 50%), radial-gradient(at 0% 100%, rgba(20, 184, 166, 0.15) 0px, transparent 50%)'
+                                    // Increased opacity for Light Mode to make glass effect visible
+                                    : 'radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.4) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.4) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.4) 0px, transparent 50%), radial-gradient(at 0% 100%, rgba(20, 184, 166, 0.4) 0px, transparent 50%)',
                                 backgroundAttachment: 'fixed',
                                 minHeight: '100vh',
-                                color: '#ffffff',
+                                color: colors.text,
                             },
                             '::-webkit-scrollbar': { display: 'none' } // Hide default body scrollbar if we use a custom container, but we usually want it. Wait.
                         },
@@ -225,9 +226,7 @@ export const CustomThemeProvider: React.FC<ThemeProviderProps> = ({ children }) 
                     MuiDrawer: {
                         styleOverrides: {
                             paper: {
-                                backgroundColor: resolvedMode === 'dark'
-                                    ? 'rgba(30, 30, 30, 0.95)'
-                                    : 'rgba(250, 250, 250, 0.95)',
+                                backgroundColor: colors.surface,
                                 backdropFilter: 'blur(20px) saturate(150%)',
                                 borderRight: `1px solid ${colors.border}`,
                             },
@@ -246,9 +245,7 @@ export const CustomThemeProvider: React.FC<ThemeProviderProps> = ({ children }) 
                     MuiDialog: {
                         styleOverrides: {
                             paper: {
-                                backgroundColor: resolvedMode === 'dark'
-                                    ? 'rgba(40, 40, 40, 0.95)'
-                                    : 'rgba(255, 255, 255, 0.95)',
+                                backgroundColor: colors.surface,
                                 backdropFilter: 'blur(24px) saturate(150%)',
                                 border: `1px solid ${colors.border}`,
                                 boxShadow: resolvedMode === 'dark'

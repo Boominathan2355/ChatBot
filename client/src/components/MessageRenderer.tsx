@@ -204,6 +204,17 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
                     em({ children }) {
                         return <Typography component="em" fontStyle="italic" sx={{ display: 'inline' }}>{children}</Typography>;
                     },
+
+                    // Table wrapper for horizontal scrolling
+                    table({ children }) {
+                        return (
+                            <Box sx={{ overflowX: 'auto', display: 'block', maxWidth: '100%', my: 2 }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    {children}
+                                </table>
+                            </Box>
+                        );
+                    },
                 }}
             >
                 {content}

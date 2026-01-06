@@ -769,7 +769,7 @@ const ChatPage: React.FC = () => {
     };
 
     return (
-        <Box sx={{ display: 'flex', height: '100vh', bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#ffffff' }}>
+        <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'transparent' }}>
             {/* Sidebar */}
             <Drawer
                 variant={isMobile ? 'temporary' : 'persistent'}
@@ -781,7 +781,7 @@ const ChatPage: React.FC = () => {
                     '& .MuiDrawer-paper': {
                         width: DRAWER_WIDTH,
                         boxSizing: 'border-box',
-                        bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#f5f5f5',
+                        // Let ThemeContext handle background/glass
                         borderRight: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
                     },
                 }}
@@ -1072,11 +1072,12 @@ const ChatPage: React.FC = () => {
                     sx={{
                         flex: 1,
                         overflowY: 'auto',
+                        overflowX: 'hidden',
                         px: isMobile ? 2 : 4,
                         py: 4,
                     }}
                 >
-                    <Box sx={{ maxWidth: 768, mx: 'auto' }}>
+                    <Box sx={{ width: '100%', maxWidth: 1000, mx: 'auto' }}>
                         {messages.length === 0 && (
                             <Box sx={{ textAlign: 'center', py: 8 }}>
                                 <Typography variant="h4" sx={{ fontWeight: 500, opacity: 0.8, mb: 1 }}>How can I help you today?</Typography>
@@ -1122,18 +1123,21 @@ const ChatPage: React.FC = () => {
                                     <Box
                                         sx={{
                                             minWidth: editingMessageIndex === i ? '300px' : 'auto',
-                                            maxWidth: editingMessageIndex === i ? '95%' : '75%',
+                                            maxWidth: editingMessageIndex === i ? '95%' : (msg.role === 'user' ? '70%' : '90%'),
                                             width: editingMessageIndex === i ? '95%' : 'auto',
                                             bgcolor: msg.role === 'user'
-                                                ? (resolvedMode === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)')
-                                                : (resolvedMode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'),
-                                            borderRadius: 1,
+                                                ? (resolvedMode === 'dark' ? 'rgba(0, 229, 255, 0.15)' : 'rgba(0, 112, 243, 0.1)')
+                                                : (resolvedMode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.6)'),
+                                            borderRadius: 2,
                                             px: 2,
                                             py: 1.5,
+                                            backdropFilter: 'blur(10px)',
+                                            boxShadow: msg.role === 'user' ? 'none' : '0 2px 8px rgba(0,0,0,0.05)',
                                             border: resolvedMode === 'dark'
-                                                ? '1px solid rgba(255, 255, 255, 0.08)'
-                                                : '1px solid rgba(0, 0, 0, 0.06)',
+                                                ? '1px solid rgba(255, 255, 255, 0.1)'
+                                                : '1px solid rgba(0, 0, 0, 0.05)',
                                             transition: 'max-width 0.2s ease-in-out',
+                                            wordBreak: 'break-word', // Ensure long text wraps
                                         }}
                                     >
                                         {msg.image && (
@@ -1285,7 +1289,7 @@ const ChatPage: React.FC = () => {
 
                 {/* Input Area */}
                 <Box sx={{ p: 2 }}>
-                    <Box sx={{ maxWidth: 768, mx: 'auto' }}>
+                    <Box sx={{ width: '100%', maxWidth: 1000, mx: 'auto' }}>
                         {/* Attachment Preview */}
                         {attachedFile && (
                             <Box sx={{
@@ -1342,6 +1346,7 @@ const ChatPage: React.FC = () => {
                                 alignItems: 'flex-end',
                                 gap: 1,
                                 bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                                backdropFilter: 'blur(10px)',
                                 borderRadius: 3,
                                 border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                                 p: 1,
@@ -1458,11 +1463,9 @@ const ChatPage: React.FC = () => {
                 onClose={() => setShareDialogOpen(false)}
                 PaperProps={{
                     sx: {
-                        bgcolor: resolvedMode === 'dark' ? '#1a1a1a' : '#fff',
-                        color: resolvedMode === 'dark' ? '#fff' : '#0a0a0a',
+                        // Inherit global MuiDialog glass styles
                         borderRadius: 3,
                         minWidth: 440,
-                        border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.1)' : 'none'
                     }
                 }}
             >
@@ -1561,7 +1564,7 @@ const ChatPage: React.FC = () => {
                         minWidth: 200,
                         maxHeight: 400,
                         boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                        borderRadius: 3,
+                        borderRadius: 1,
                         mt: -1
                     }
                 }}

@@ -131,13 +131,18 @@ exports.sendMessage = async (req, res) => {
 
         // Perform Document RAG if applicable
         let docContext = '';
-        try {
-            const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
-            if (relevantChunks.length > 0) {
-                docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
+        // Check if RAG is enabled (defaulting to true if undefined for backward compatibility, though schema handles default)
+        const isRagEnabled = settings.rag && settings.rag.enabled !== false;
+
+        if (isRagEnabled) {
+            try {
+                const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
+                if (relevantChunks.length > 0) {
+                    docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
+                }
+            } catch (docError) {
+                console.error('❌ Document RAG failed:', docError.message);
             }
-        } catch (docError) {
-            console.error('❌ Document RAG failed:', docError.message);
         }
 
         // Prepare context for AI provider
@@ -344,13 +349,17 @@ exports.sendGroupMessage = async (req, res) => {
         const histSize = settings.historyWindowSize || 20;
 
         let docContext = '';
-        try {
-            const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
-            if (relevantChunks.length > 0) {
-                docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
+        const isRagEnabled = settings.rag && settings.rag.enabled !== false;
+
+        if (isRagEnabled) {
+            try {
+                const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
+                if (relevantChunks.length > 0) {
+                    docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
+                }
+            } catch (docError) {
+                console.error('❌ Document RAG failed in Group:', docError.message);
             }
-        } catch (docError) {
-            console.error('❌ Document RAG failed in Group:', docError.message);
         }
 
         let searchContext = '';

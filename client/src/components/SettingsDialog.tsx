@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Dialog, DialogContent, Box, Typography, List, ListItemButton,
-    ListItemText, IconButton, Button, Divider, Select, MenuItem, FormControl, TextField
+    ListItemText, IconButton, Button, Divider, Select, MenuItem, FormControl, TextField, Switch, FormControlLabel
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -68,7 +68,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
     const [awsConfig, setAwsConfig] = useState({ region: 'us-east-1', modelId: '', hasKey: false });
     const [azureConfig, setAzureConfig] = useState({ endpoint: '', deploymentName: '', hasKey: false });
     const [customConfig, setCustomConfig] = useState({ baseUrl: '', model: '', hasKey: false });
-    const [ragConfig, setRagConfig] = useState({ provider: 'ollama', model: '' });
+    const [ragConfig, setRagConfig] = useState({ provider: 'ollama', model: '', enabled: true });
 
     // New API key input (separate from display state - for secure updates)
     const [newApiKey, setNewApiKey] = useState('');
@@ -129,7 +129,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
             if (provider === 'ollama' && ollamaConfig.baseUrl) {
                 url += `?baseUrl=${encodeURIComponent(ollamaConfig.baseUrl)}`;
             }
-        const { data } = await api.get(url);
+            const { data } = await api.get(url);
             return data.models || [];
         } catch (e: any) {
             console.error('Failed to load models', e);
@@ -155,7 +155,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                 if (data.aws) setAwsConfig({ region: data.aws.region || 'us-east-1', modelId: data.aws.modelId || '', hasKey: data.aws.hasKey || false });
                 if (data.azure) setAzureConfig({ endpoint: data.azure.endpoint || '', deploymentName: data.azure.deploymentName || '', hasKey: data.azure.hasKey || false });
                 if (data.custom) setCustomConfig({ baseUrl: data.custom.baseUrl || '', model: data.custom.model || '', hasKey: data.custom.hasKey || false });
-                if (data.rag) setRagConfig({ provider: data.rag.provider || 'ollama', model: data.rag.model || '' });
+                if (data.rag) setRagConfig({
+                    provider: data.rag.provider || 'ollama',
+                    model: data.rag.model || '',
+                    enabled: data.rag.enabled !== false // Default to true
+                });
                 setSystemInstructions(data.systemInstructions || '');
             }
             setSettingsLoaded(true);
@@ -346,7 +350,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     onChange={(e) => setAiProvider(e.target.value)}
                                 >
                                     <MenuItem value="ollama">Ollama (Local)</MenuItem>
-                                    <MenuItem value="colab">Google Colab (Ollama)</MenuItem>
                                     <MenuItem value="openai">OpenAI</MenuItem>
                                     <MenuItem value="anthropic">Claude (Anthropic)</MenuItem>
                                     <MenuItem value="deepseek">DeepSeek</MenuItem>
@@ -785,60 +788,74 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                             Configure the model used for Retrieval-Augmented Generation (reading documents and search results).
                             You can use a more capable model specifically for processing context.
                         </Typography>
-                        <Box>
-                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>RAG Provider</Typography>
-                            <FormControl fullWidth size="small">
-                                <Select
-                                    value={ragConfig.provider}
-                                    onChange={(e) => {
-                                        const newProvider = e.target.value;
-                                        setRagConfig({ ...ragConfig, provider: newProvider, model: '' });
-                                        loadRagModels(newProvider);
-                                    }}
-                                >
-                                    <MenuItem value="ollama">Ollama (Local)</MenuItem>
-                                    <MenuItem value="openai">OpenAI</MenuItem>
-                                    <MenuItem value="anthropic">Claude (Anthropic)</MenuItem>
-                                    <MenuItem value="deepseek">DeepSeek</MenuItem>
-                                    <MenuItem value="grok">Grok (xAI)</MenuItem>
-                                    <MenuItem value="aws">AWS Bedrock</MenuItem>
-                                    <MenuItem value="azure">Azure OpenAI</MenuItem>
-                                    <MenuItem value="custom">Custom Endpoint</MenuItem>
-                                </Select>
-                            </FormControl>
+                        <Box sx={{ mb: 2 }}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={ragConfig.enabled}
+                                        onChange={(e) => setRagConfig({ ...ragConfig, enabled: e.target.checked })}
+                                    />
+                                }
+                                label="Enable Knowledge Base (RAG)"
+                            />
                         </Box>
 
-                        <Divider />
+                        <Box sx={{ opacity: ragConfig.enabled ? 1 : 0.5, pointerEvents: ragConfig.enabled ? 'auto' : 'none', transition: 'opacity 0.2s', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <Box>
+                                <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>RAG Provider</Typography>
+                                <FormControl fullWidth size="small">
+                                    <Select
+                                        value={ragConfig.provider}
+                                        onChange={(e) => {
+                                            const newProvider = e.target.value;
+                                            setRagConfig({ ...ragConfig, provider: newProvider, model: '' });
+                                            loadRagModels(newProvider);
+                                        }}
+                                    >
+                                        <MenuItem value="ollama">Ollama (Local)</MenuItem>
+                                        <MenuItem value="openai">OpenAI</MenuItem>
+                                        <MenuItem value="anthropic">Claude (Anthropic)</MenuItem>
+                                        <MenuItem value="deepseek">DeepSeek</MenuItem>
+                                        <MenuItem value="grok">Grok (xAI)</MenuItem>
+                                        <MenuItem value="aws">AWS Bedrock</MenuItem>
+                                        <MenuItem value="azure">Azure OpenAI</MenuItem>
+                                        <MenuItem value="custom">Custom Endpoint</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
 
-                        <Box>
-                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
-                                RAG Model {ragModels.length > 0 && <span style={{ color: '#4caf50' }}>({ragModels.length} available)</span>}
-                            </Typography>
-                            <FormControl fullWidth size="small">
-                                <Select
-                                    value={ragConfig.model}
-                                    onChange={(e) => setRagConfig({ ...ragConfig, model: e.target.value })}
-                                    displayEmpty
-                                >
-                                    <MenuItem value="" disabled>
-                                        {loadingRagModels ? 'Loading models...' : (ragModels.length === 0 ? 'Select a provider above' : 'Select a model')}
-                                    </MenuItem>
-                                    {ragModels.map(m => (
-                                        <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
+                            <Divider />
+
+                            <Box>
+                                <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>
+                                    RAG Model {ragModels.length > 0 && <span style={{ color: '#4caf50' }}>({ragModels.length} available)</span>}
+                                </Typography>
+                                <FormControl fullWidth size="small">
+                                    <Select
+                                        value={ragConfig.model}
+                                        onChange={(e) => setRagConfig({ ...ragConfig, model: e.target.value })}
+                                        displayEmpty
+                                    >
+                                        <MenuItem value="" disabled>
+                                            {loadingRagModels ? 'Loading models...' : (ragModels.length === 0 ? 'Select a provider above' : 'Select a model')}
+                                        </MenuItem>
+                                        {ragModels.map(m => (
+                                            <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => loadRagModels(ragConfig.provider)}
+                                disabled={loadingRagModels}
+                                startIcon={<RefreshIcon />}
+                                sx={{ alignSelf: 'flex-start' }}
+                            >
+                                Refresh Models
+                            </Button>
                         </Box>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => loadRagModels(ragConfig.provider)}
-                            disabled={loadingRagModels}
-                            startIcon={<RefreshIcon />} // Assuming RefreshIcon is imported
-                            sx={{ alignSelf: 'flex-start' }}
-                        >
-                            Refresh Models
-                        </Button>
                     </Box>
                 );
             default:
@@ -874,7 +891,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                         width: 240,
                         borderRight: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                         p: 2,
-                        bgcolor: resolvedMode === 'dark' ? '#171717' : '#f9f9f9',
+                        // Removed distinct background for glass effect continuity
                     }}>
                         <List>
                             {tabs.map((tab) => (

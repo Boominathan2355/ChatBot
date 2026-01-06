@@ -52,6 +52,7 @@ const userSettingsSchema = new mongoose.Schema({
 
     systemInstructions: { type: String, default: 'You are Jarvis, a helpful AI assistant.' },
     rag: {
+        enabled: { type: Boolean, default: true },
         provider: { type: String, default: 'ollama' },
         model: { type: String, default: '' }
     },
