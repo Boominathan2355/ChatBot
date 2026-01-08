@@ -7,7 +7,8 @@ class VectorService {
         let model, ollamaUrl; // Declare outside try-catch for error logging
         try {
             const settings = await UserSettings.findOne({ userId });
-            ollamaUrl = settings?.ollamaBaseUrl || 'http://localhost:11434';
+
+            ollamaUrl = settings?.rag?.baseUrl || 'http://localhost:11434';
             model = settings?.embeddingModel || 'nomic-embed-text';
 
             // Sanitize URL: Remove any trailing slashes or legacy endpoints if entered by mistake

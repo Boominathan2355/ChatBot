@@ -512,6 +512,7 @@ const ChatPage: React.FC = () => {
                     content: messageContent || (imageObject ? 'Sent an image' : (fileObject ? `Uploaded ${currentFile?.name}` : '')),
                     image: imageObject,
                     webSearch: webSearchEnabled,
+                    useRag: false, // Only use RAG when explicitly requested, not for regular chat
                     documentId: fileObject?._id,
                     aiProvider: aiProvider,
                     model: currentModel
@@ -700,6 +701,7 @@ const ChatPage: React.FC = () => {
                     content: targetUserMsg.content,
                     image: targetUserMsg.image,
                     webSearch: webSearchEnabled,
+                    useRag: false, // Only use RAG when explicitly requested, not for regular chat
                     documentId: targetUserMsg.metadata?.documentId
                 })
             });

@@ -48,6 +48,9 @@ exports.updateSettings = async (req, res) => {
         // Extract only non-sensitive fields
         const { aiProvider, ollama, systemInstructions, historyWindowSize, theme } = req.body;
 
+        // Debug: Log incoming RAG data
+        console.log('📝 Updating settings - RAG data received:', req.body.rag);
+
         // For provider configs, only update model selection, not keys
         const updateData = {
             aiProvider,
@@ -65,6 +68,8 @@ exports.updateSettings = async (req, res) => {
             'custom.model': req.body.custom?.model,
             'rag.provider': req.body.rag?.provider,
             'rag.model': req.body.rag?.model,
+            'rag.baseUrl': req.body.rag?.baseUrl,
+            'rag.enabled': req.body.rag?.enabled,
             systemInstructions,
             historyWindowSize,
             theme
@@ -78,6 +83,8 @@ exports.updateSettings = async (req, res) => {
             { $set: updateData },
             { new: true, upsert: true }
         ).lean();
+
+        console.log('✅ Settings saved - RAG config:', settings.rag);
 
         res.json({ success: true });
     } catch (error) {

@@ -68,7 +68,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
     const [awsConfig, setAwsConfig] = useState({ region: 'us-east-1', modelId: '', hasKey: false });
     const [azureConfig, setAzureConfig] = useState({ endpoint: '', deploymentName: '', hasKey: false });
     const [customConfig, setCustomConfig] = useState({ baseUrl: '', model: '', hasKey: false });
-    const [ragConfig, setRagConfig] = useState({ provider: 'ollama', model: '', enabled: true });
+    const [ragConfig, setRagConfig] = useState({ provider: 'ollama', model: '', baseUrl: '', enabled: true });
 
     // New API key input (separate from display state - for secure updates)
     const [newApiKey, setNewApiKey] = useState('');
@@ -102,7 +102,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
     const loadModels = async (provider: string) => {
         setLoadingModels(true);
         try {
-            const models = await fetchModels(provider);
+            const models = await fetchModels(provider, (provider === 'ollama' ? ollamaConfig.baseUrl : undefined));
             setAvailableModels(models);
         } catch (e) {
             setAvailableModels([]);
@@ -114,7 +114,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
     const loadRagModels = async (provider: string) => {
         setLoadingRagModels(true);
         try {
-            const models = await fetchModels(provider);
+            // Force use of RAG URL or default, do not fallback to main provider config
+            const effectiveUrl = ragConfig.baseUrl || 'http://localhost:11434';
+            const models = await fetchModels(provider, effectiveUrl, true);
             setRagModels(models);
         } catch (e) {
             setRagModels([]);
@@ -123,12 +125,18 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
         }
     };
 
-    const fetchModels = async (provider: string) => {
+    const fetchModels = async (provider: string, customBaseUrl?: string, strictCustomUrl = false) => {
         try {
             let url = `/settings/models/${provider}`;
-            if (provider === 'ollama' && ollamaConfig.baseUrl) {
+
+            if (customBaseUrl) {
+                // Use specific URL if provided (e.g. for RAG)
+                url += `?baseUrl=${encodeURIComponent(customBaseUrl)}`;
+            } else if (!strictCustomUrl && provider === 'ollama' && ollamaConfig.baseUrl) {
+                // Fallback to default Ollama config ONLY if not in strict mode
                 url += `?baseUrl=${encodeURIComponent(ollamaConfig.baseUrl)}`;
             }
+
             const { data } = await api.get(url);
             return data.models || [];
         } catch (e: any) {
@@ -137,10 +145,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
         }
     };
 
-    // const refreshModels = () => {
-    //     loadModels(aiProvider);
-    //     if (ragConfig.provider) loadRagModels(ragConfig.provider);
-    // };
+
 
     const loadSettings = async () => {
         try {
@@ -158,6 +163,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                 if (data.rag) setRagConfig({
                     provider: data.rag.provider || 'ollama',
                     model: data.rag.model || '',
+                    baseUrl: data.rag.baseUrl || '',
                     enabled: data.rag.enabled !== false // Default to true
                 });
                 setSystemInstructions(data.systemInstructions || '');
@@ -845,16 +851,38 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     </Select>
                                 </FormControl>
                             </Box>
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={() => loadRagModels(ragConfig.provider)}
-                                disabled={loadingRagModels}
-                                startIcon={<RefreshIcon />}
-                                sx={{ alignSelf: 'flex-start' }}
-                            >
-                                Refresh Models
-                            </Button>
+
+                            {/* Base URL Input for specific providers */}
+                            {(ragConfig.provider === 'ollama' || ragConfig.provider === 'custom') && (
+                                <Box>
+                                    <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Base URL</Typography>
+                                    <TextField
+                                        fullWidth size="small"
+                                        value={ragConfig.baseUrl}
+                                        onChange={(e) => setRagConfig({ ...ragConfig, baseUrl: e.target.value })}
+                                        placeholder={ragConfig.provider === 'ollama' ? "http://localhost:11434" : "https://api.example.com"}
+                                    />
+                                </Box>
+                            )}
+
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    onClick={() => loadRagModels(ragConfig.provider)}
+                                    disabled={loadingRagModels}
+                                    startIcon={<RefreshIcon />}
+                                >
+                                    Refresh Models
+                                </Button>
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={handleSaveSettings}
+                                >
+                                    Save Configuration
+                                </Button>
+                            </Box>
                         </Box>
                     </Box>
                 );

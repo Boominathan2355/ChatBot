@@ -54,7 +54,8 @@ const userSettingsSchema = new mongoose.Schema({
     rag: {
         enabled: { type: Boolean, default: true },
         provider: { type: String, default: 'ollama' },
-        model: { type: String, default: '' }
+        model: { type: String, default: '' },
+        baseUrl: { type: String, default: '' } // For custom RAG provider URLs
     },
     historyWindowSize: { type: Number, default: 20 },
     theme: { type: String, default: 'dark' }

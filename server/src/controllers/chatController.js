@@ -93,7 +93,7 @@ exports.getChatMessages = async (req, res) => {
 };
 
 exports.sendMessage = async (req, res) => {
-    const { content, webSearch, image, documentId, aiProvider, model } = req.body;
+    const { content, webSearch, image, aiProvider, model, useRag } = req.body;
     const chatId = req.params.id;
 
     try {
@@ -129,20 +129,22 @@ exports.sendMessage = async (req, res) => {
         currentChat.messages.push({ role: 'user', content, image });
         await currentChat.save();
 
-        // Perform Document RAG if applicable
+        // Perform Document RAG ONLY if explicitly requested via useRag flag
         let docContext = '';
-        // Check if RAG is enabled (defaulting to true if undefined for backward compatibility, though schema handles default)
         const isRagEnabled = settings.rag && settings.rag.enabled !== false;
 
-        if (isRagEnabled) {
+        if (isRagEnabled && useRag) {
             try {
                 const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
                 if (relevantChunks.length > 0) {
                     docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
+                    console.log(`📚 Document RAG: Found ${relevantChunks.length} relevant chunks`);
                 }
             } catch (docError) {
                 console.error('❌ Document RAG failed:', docError.message);
             }
+        } else if (!useRag) {
+            console.log(`ℹ️ Document RAG skipped - useRag flag not set`);
         }
 
         // Prepare context for AI provider
@@ -191,7 +193,7 @@ exports.sendMessage = async (req, res) => {
             try {
                 const titlePrompt = `Summarize the following user message into a very short, concise title (max 5 words). Output ONLY the title, no quotes, no punctuation, no extra text.\n\nUser Message: ${content}`;
                 const generatedTitle = await aiService.generate(settings, [{ role: 'user', content: titlePrompt }]);
-                newTitle = generatedTitle?.trim().replace(/^["']|["']$/g, '');
+                newTitle = generatedTitle?.trim().replace(/(^["'])|(["']$)/g, '');
                 if (newTitle) {
                     currentChat.title = newTitle;
                     await currentChat.save();
@@ -209,7 +211,17 @@ exports.sendMessage = async (req, res) => {
         if ((docContext || searchContext) && settings.rag && settings.rag.model) {
             aiOptions.provider = settings.rag.provider;
             aiOptions.model = settings.rag.model;
-            console.log(`🔍 RAG Override: [${aiOptions.provider}] ${aiOptions.model}`);
+
+            // STRICTLY use RAG settings for the provider, ignoring global/main config
+            const ragBaseUrl = settings.rag.baseUrl || 'http://localhost:11434';
+
+            if (settings.rag.provider === 'ollama') {
+                // Force overwrite ollama config to use ONLY RAG URL
+                settings.ollama = { baseUrl: ragBaseUrl };
+            } else if (settings.rag.provider === 'custom') {
+                settings.custom = { baseUrl: ragBaseUrl };
+            }
+            console.log(`🔍 RAG Override: [${aiOptions.provider}] ${aiOptions.model} @ ${ragBaseUrl}`);
         }
 
         const { stream, parser } = await aiService.getStream(settings, history, aiOptions);
@@ -224,12 +236,38 @@ exports.sendMessage = async (req, res) => {
         }
 
         let assistantMessage = '';
+        let isThinking = false; // State to track if inside <think> block
+
         stream.on('data', chunk => {
             const results = parser(chunk);
             for (const resObj of results) {
                 if (resObj.content) {
-                    assistantMessage += resObj.content;
-                    res.write(`data: ${JSON.stringify({ content: resObj.content })}\n\n`);
+                    let content = resObj.content;
+
+                    // Filter out <think> blocks
+                    if (isThinking) {
+                        if (content.includes('</think>')) {
+                            isThinking = false;
+                            content = content.split('</think>')[1] || ''; // Keep content after tag
+                        } else {
+                            content = ''; // Suppress thinking content
+                        }
+                    } else if (content.includes('<think>')) {
+                        isThinking = true;
+                        if (content.includes('</think>')) {
+                            // Handle inline think block in same chunk
+                            isThinking = false;
+                            const parts = content.split('</think>');
+                            content = content.replace(/<think>.*?<\/think>/s, '') || parts[1] || '';
+                        } else {
+                            content = content.split('<think>')[0] || ''; // Keep content before tag
+                        }
+                    }
+
+                    if (content) {
+                        assistantMessage += content;
+                        res.write(`data: ${JSON.stringify({ content: content })}\n\n`);
+                    }
                 }
             }
         });
@@ -326,7 +364,7 @@ exports.bulkDelete = async (req, res) => {
 exports.sendGroupMessage = async (req, res) => {
     try {
         const { chatId } = req.params;
-        const { content, webSearch, image, documentId } = req.body;
+        const { content, webSearch, image } = req.body;
         const currentChat = await Chat.findOne({ _id: chatId, isGrouped: true }).populate('groupId');
         if (!currentChat) return res.status(404).json({ message: 'Group chat not found' });
 
@@ -420,13 +458,37 @@ exports.sendGroupMessage = async (req, res) => {
             res.setHeader('Connection', 'keep-alive');
 
             let assistantMessage = '';
+            let isThinking = false;
 
             stream.on('data', chunk => {
                 const results = parser(chunk);
                 for (const resObj of results) {
                     if (resObj.content) {
-                        assistantMessage += resObj.content;
-                        res.write(`data: ${JSON.stringify({ content: resObj.content })}\n\n`);
+                        let content = resObj.content;
+
+                        // Filter out <think> blocks
+                        if (isThinking) {
+                            if (content.includes('</think>')) {
+                                isThinking = false;
+                                content = content.split('</think>')[1] || '';
+                            } else {
+                                content = '';
+                            }
+                        } else if (content.includes('<think>')) {
+                            isThinking = true;
+                            if (content.includes('</think>')) {
+                                isThinking = false;
+                                const parts = content.split('</think>');
+                                content = content.replace(/<think>.*?<\/think>/s, '') || parts[1] || '';
+                            } else {
+                                content = content.split('<think>')[0] || '';
+                            }
+                        }
+
+                        if (content) {
+                            assistantMessage += content;
+                            res.write(`data: ${JSON.stringify({ content: content })}\n\n`);
+                        }
                     }
                 }
             });
@@ -487,7 +549,7 @@ exports.shareChat = async (req, res) => {
 
         // Generate share token if not exists
         if (!chat.shareToken) {
-            chat.shareToken = require('crypto').randomBytes(16).toString('hex');
+            chat.shareToken = require('node:crypto').randomBytes(16).toString('hex');
             chat.isShared = true;
             await chat.save();
         }
@@ -552,7 +614,7 @@ exports.joinSharedChat = async (req, res) => {
             return res.json(chat);
         }
 
-        let groupId = chat.groupId;
+
 
         // If it's a Direct Chat (not grouped), convert to Group Chat
         if (!chat.isGrouped) {
@@ -562,7 +624,7 @@ exports.joinSharedChat = async (req, res) => {
                 ownerId: chat.userId,
                 members: [{ userId: req.user.id, role: 'member' }]
             });
-            groupId = newGroup._id;
+
 
             // Update Chat to be Grouped
             chat.isGrouped = true;
