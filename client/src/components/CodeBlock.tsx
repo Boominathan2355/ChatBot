@@ -22,17 +22,16 @@ const CodeContainer = styled(Box)(({ theme }) => ({
     },
 }));
 
-const LanguageLabel = styled(Typography)(({ theme }) => ({
+const LanguageLabel = styled(Typography)(() => ({
     position: 'absolute',
     top: 0,
     left: 0,
-    padding: '4px 12px',
+    padding: '8px 12px',
     fontSize: '0.75rem',
     fontWeight: 600,
-    textTransform: 'uppercase',
-    background: 'rgba(0, 229, 255, 0.2)',
-    color: theme.palette.primary.main,
-    borderBottomRightRadius: 8,
+    textTransform: 'lowercase',
+    color: '#fff',
+    opacity: 0.7,
     zIndex: 1,
 }));
 
@@ -45,11 +44,11 @@ const CopyButton = styled(IconButton)(() => ({
     background: 'rgba(0, 0, 0, 0.3)',
     backdropFilter: 'blur(4px)',
     '&:hover': {
-        background: 'rgba(0, 229, 255, 0.3)',
+        background: 'rgba(255, 255, 255, 0.2)',
     },
 }));
 
-const CodeBlock: React.FC<CodeBlockProps> = ({ language, value }) => {
+const CodeBlock: React.FC<CodeBlockProps> = React.memo(({ language, value }) => {
     const { resolvedMode } = useThemeMode();
     const [copied, setCopied] = useState(false);
 
@@ -92,6 +91,9 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ language, value }) => {
             </SyntaxHighlighter>
         </CodeContainer>
     );
-};
+}, (prevProps, nextProps) => {
+    // Only re-render if language or value changed
+    return prevProps.language === nextProps.language && prevProps.value === nextProps.value;
+});
 
 export default CodeBlock;

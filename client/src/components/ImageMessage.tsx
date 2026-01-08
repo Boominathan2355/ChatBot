@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Box, CircularProgress, Typography, Modal, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
@@ -8,24 +8,30 @@ interface ImageMessageProps {
     alt?: string;
     width?: number;
     height?: number;
-    resolvedMode: 'light' | 'dark';
+    resolvedMode: 'dark' | 'light' | 'soft-dark' | 'night' | 'high-contrast' | 'soft-light';
 }
 
-const ImageMessage: React.FC<ImageMessageProps> = ({ src, alt, width, height, resolvedMode }) => {
+const ImageMessage: React.FC<ImageMessageProps> = React.memo(({ src, alt, width, height, resolvedMode }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const [openModal, setOpenModal] = useState(false);
 
-    const handleImageLoad = () => setIsLoading(false);
-    const handleImageError = () => {
+    const handleImageLoad = useCallback(() => setIsLoading(false), []);
+    const handleImageError = useCallback(() => {
         setIsLoading(false);
         setHasError(true);
-    };
+    }, []);
+
+    const handleOpenModal = useCallback(() => {
+        if (!hasError) setOpenModal(true);
+    }, [hasError]);
+
+    const handleCloseModal = useCallback(() => setOpenModal(false), []);
 
     return (
         <Box sx={{ mt: 1, mb: 0.5 }}>
             <Box
-                onClick={() => !hasError && setOpenModal(true)}
+                onClick={handleOpenModal}
                 sx={{
                     position: 'relative',
                     maxWidth: '100%',
@@ -72,12 +78,12 @@ const ImageMessage: React.FC<ImageMessageProps> = ({ src, alt, width, height, re
             {/* Lightbox Modal */}
             <Modal
                 open={openModal}
-                onClose={() => setOpenModal(false)}
+                onClose={handleCloseModal}
                 sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)' }}
             >
                 <Box sx={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', outline: 'none' }}>
                     <IconButton
-                        onClick={() => setOpenModal(false)}
+                        onClick={handleCloseModal}
                         sx={{
                             position: 'absolute',
                             top: -40,
@@ -98,6 +104,9 @@ const ImageMessage: React.FC<ImageMessageProps> = ({ src, alt, width, height, re
             </Modal>
         </Box>
     );
-};
+}, (prevProps, nextProps) => {
+    // Only re-render if src or resolvedMode changed
+    return prevProps.src === nextProps.src && prevProps.resolvedMode === nextProps.resolvedMode;
+});
 
 export default ImageMessage;

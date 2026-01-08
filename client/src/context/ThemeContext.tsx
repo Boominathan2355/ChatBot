@@ -3,13 +3,13 @@ import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { createTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+type ThemeMode = 'light' | 'dark' | 'system' | 'soft-dark' | 'night' | 'high-contrast' | 'soft-light';
 
 interface ThemeContextType {
     mode: ThemeMode;
     toggleTheme: () => void;
     setMode: (mode: ThemeMode) => void;
-    resolvedMode: 'light' | 'dark';
+    resolvedMode: 'light' | 'dark' | 'soft-dark' | 'night' | 'high-contrast' | 'soft-light';
 }
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -25,27 +25,67 @@ interface ThemeProviderProps {
     children: React.ReactNode;
 }
 
-// Monochrome color palette
+// Monochrome color palettes for eye-friendly modes
 const COLORS = {
     dark: {
-        bg: '#0a0a0a',
-        surface: 'rgba(20, 30, 50, 0.4)', // Much more transparent
+        bg: '#212121',
+        surface: 'rgba(20, 30, 50, 0.4)',
         surfaceLight: 'rgba(40, 50, 70, 0.3)',
         text: '#ffffff',
         textSecondary: 'rgba(255, 255, 255, 0.7)',
         border: 'rgba(255, 255, 255, 0.1)',
         borderHover: 'rgba(255, 255, 255, 0.2)',
-        accent: '#00e5ff', // Cyber blue accent
+        accent: '#ffffff', // Monochrome white
     },
     light: {
         bg: '#ffffff',
-        surface: 'rgba(255, 255, 255, 0.4)', // Much more transparent
+        surface: 'rgba(255, 255, 255, 0.4)',
         surfaceLight: 'rgba(255, 255, 255, 0.3)',
-        text: '#0a0a0a',
-        textSecondary: 'rgba(10, 10, 10, 0.7)',
+        text: '#212121',
+        textSecondary: 'rgba(33, 33, 33, 0.7)',
         border: 'rgba(0, 0, 0, 0.08)',
         borderHover: 'rgba(0, 0, 0, 0.15)',
-        accent: '#0070f3', // Blue accent
+        accent: '#000000', // Monochrome black
+    },
+    'soft-dark': {
+        bg: '#1E1E1E',
+        surface: 'rgba(30, 30, 30, 0.4)',
+        surfaceLight: 'rgba(40, 40, 40, 0.3)',
+        text: '#E0E0E0',
+        textSecondary: 'rgba(224, 224, 224, 0.7)',
+        border: 'rgba(255, 255, 255, 0.08)',
+        borderHover: 'rgba(255, 255, 255, 0.15)',
+        accent: '#E0E0E0', // Soft gray
+    },
+    night: {
+        bg: '#0D0D0D',
+        surface: 'rgba(13, 13, 13, 0.4)',
+        surfaceLight: 'rgba(20, 20, 20, 0.3)',
+        text: '#BDBDBD',
+        textSecondary: 'rgba(189, 189, 189, 0.7)',
+        border: 'rgba(255, 255, 255, 0.05)',
+        borderHover: 'rgba(255, 255, 255, 0.1)',
+        accent: '#BDBDBD', // Muted gray
+    },
+    'high-contrast': {
+        bg: '#000000',
+        surface: 'rgba(0, 0, 0, 0.9)',
+        surfaceLight: 'rgba(10, 10, 10, 0.8)',
+        text: '#FFFFFF',
+        textSecondary: 'rgba(255, 255, 255, 0.9)',
+        border: 'rgba(255, 255, 255, 0.3)',
+        borderHover: 'rgba(255, 255, 255, 0.5)',
+        accent: '#FFFFFF',  // Pure white
+    },
+    'soft-light': {
+        bg: '#F5F5F5',
+        surface: 'rgba(245, 245, 245, 0.4)',
+        surfaceLight: 'rgba(250, 250, 250, 0.3)',
+        text: '#424242',
+        textSecondary: 'rgba(66, 66, 66, 0.7)',
+        border: 'rgba(0, 0, 0, 0.06)',
+        borderHover: 'rgba(0, 0, 0, 0.12)',
+        accent: '#424242', // Dark gray
     }
 };
 
@@ -67,8 +107,21 @@ export const CustomThemeProvider: React.FC<ThemeProviderProps> = ({ children }) 
     };
 
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-    const resolvedMode = mode === 'system' ? (prefersDarkMode ? 'dark' : 'light') : mode;
-    const colors = COLORS[resolvedMode];
+
+    // Resolve mode for eye-friendly variants
+    const getResolvedMode = (): 'light' | 'dark' | 'soft-dark' | 'night' | 'high-contrast' | 'soft-light' => {
+        if (mode === 'system') return prefersDarkMode ? 'dark' : 'light';
+        return mode as any;
+    };
+
+    const resolvedMode = getResolvedMode();
+
+    // Calculate baseMode (always 'light' or 'dark' for MUI)
+    const baseMode: 'light' | 'dark' = ['soft-dark', 'night', 'high-contrast'].includes(resolvedMode)
+        ? 'dark'
+        : (resolvedMode === 'soft-light' ? 'light' : resolvedMode as 'light' | 'dark');
+
+    const colors = COLORS[resolvedMode] || COLORS[baseMode];
 
     useEffect(() => {
         document.body.className = '';
@@ -79,16 +132,16 @@ export const CustomThemeProvider: React.FC<ThemeProviderProps> = ({ children }) 
         () =>
             createTheme({
                 palette: {
-                    mode: resolvedMode,
+                    mode: baseMode, // Use baseMode for MUI's palette (only 'light' or 'dark')
                     primary: {
                         main: colors.accent,
-                        light: resolvedMode === 'dark' ? '#ffffff' : '#444444',
-                        dark: resolvedMode === 'dark' ? '#cccccc' : '#000000',
+                        light: baseMode === 'dark' ? '#ffffff' : '#444444',
+                        dark: baseMode === 'dark' ? '#cccccc' : '#000000',
                     },
                     secondary: {
-                        main: resolvedMode === 'dark' ? '#888888' : '#666666',
-                        light: resolvedMode === 'dark' ? '#aaaaaa' : '#888888',
-                        dark: resolvedMode === 'dark' ? '#666666' : '#444444',
+                        main: baseMode === 'dark' ? '#888888' : '#666666',
+                        light: baseMode === 'dark' ? '#aaaaaa' : '#888888',
+                        dark: baseMode === 'dark' ? '#666666' : '#444444',
                     },
                     background: {
                         default: colors.bg,

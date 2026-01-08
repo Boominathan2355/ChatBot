@@ -66,8 +66,8 @@ interface GlassButtonProps extends ButtonProps {
     children: React.ReactNode;
 }
 
-const GlassButton: React.FC<GlassButtonProps> = ({ children, ...props }) => {
+const GlassButton: React.FC<GlassButtonProps> = React.memo(({ children, ...props }) => {
     return <StyledGlassButton {...props}>{children}</StyledGlassButton>;
-};
+});
 
 export default GlassButton;

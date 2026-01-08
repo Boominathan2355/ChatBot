@@ -139,7 +139,7 @@ const GroupsPage: React.FC = () => {
     const openMenu = Boolean(anchorEl);
 
     return (
-        <Box sx={{ display: 'flex', height: '100vh', bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#ffffff' }}>
+        <Box sx={{ display: 'flex', height: '100vh', bgcolor: resolvedMode === 'dark' ? '#212121' : '#ffffff' }}>
             {/* Sidebar */}
             <Drawer
                 variant={isMobile ? 'temporary' : 'persistent'}
@@ -151,7 +151,7 @@ const GroupsPage: React.FC = () => {
                     '& .MuiDrawer-paper': {
                         width: DRAWER_WIDTH,
                         boxSizing: 'border-box',
-                        bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#f5f5f5',
+                        bgcolor: resolvedMode === 'dark' ? '#212121' : '#f5f5f5',
                         borderRight: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
                     },
                 }}

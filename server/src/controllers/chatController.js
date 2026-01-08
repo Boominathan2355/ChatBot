@@ -119,6 +119,7 @@ exports.sendMessage = async (req, res) => {
                     const focusedQuery = await searchService.generateSearchQuery(content);
                     const searchData = await searchService.performSearch(focusedQuery);
                     searchContext = searchService.processResults(searchData);
+                    console.log(`🌐 Web Search: Found context (${searchContext.length} chars)`);
                 }
             } catch (searchError) {
                 console.error('❌ RAG Search failed:', searchError.message);
@@ -179,11 +180,41 @@ exports.sendMessage = async (req, res) => {
 
         // Consolidate System Message
         let unifiedSystemMessage = settings.systemInstructions || 'You are Jarvis, a helpful AI assistant.';
+
+        // Add system timestamp and context (from environment, not internet)
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const timeStr = now.toTimeString().split(' ')[0]; // HH:MM:SS
+        const timezoneOffset = -now.getTimezoneOffset() / 60; // Hours from UTC
+        const timezone = settings.timezone || `UTC${timezoneOffset >= 0 ? '+' : ''}${timezoneOffset}`;
+
+        unifiedSystemMessage += `\n\n[SYSTEM CONTEXT]\nCurrent Date: ${dateStr}\nCurrent Time: ${timeStr}\nTimezone: ${timezone}`;
+        if (settings.country) {
+            unifiedSystemMessage += `\nUser Location: ${settings.country}`;
+        }
+        unifiedSystemMessage += `\n\nNote: This timestamp is from the system environment. Use it to understand "today", "now", "latest", "recent", etc.`;
         if (docContext) {
             unifiedSystemMessage += `\n\n[EXTRACTED DOCUMENT KNOWLEDGE]\n${docContext}\n\nINSTRUCTION: Ground your response in these sources. Cite as [Doc 1], etc.`;
         }
         if (searchContext) {
             unifiedSystemMessage += `\n\n[GROUNDED KNOWLEDGE BASE]\n${searchContext}\n\nINSTRUCTION: Ground your response in these search results. Cite as [1], [2], etc.`;
+
+            // Load recent scraped files for full content
+            try {
+                const scraperService = require('../services/scraperService');
+                const recentFiles = await scraperService.loadRecentFiles(60 * 60 * 1000); // Last 1 hour
+
+                if (recentFiles.length > 0) {
+                    const scrapedContent = recentFiles.slice(0, 3).map((file, index) =>
+                        `[Scraped ${index + 1}] ${file.title}\n${file.content.substring(0, 2000)}...\nSource: ${file.url}`
+                    ).join('\n\n');
+
+                    unifiedSystemMessage += `\n\n[FULL SCRAPED CONTENT]\n${scrapedContent}\n\nNote: This is the complete article text from scraped web pages. Use this for detailed information.`;
+                    console.log(`📖 Loaded ${recentFiles.length} scraped documents for context`);
+                }
+            } catch (err) {
+                console.warn('⚠️ Failed to load scraped files:', err.message);
+            }
         }
         history.unshift({ role: 'system', content: unifiedSystemMessage });
 
@@ -205,26 +236,11 @@ exports.sendMessage = async (req, res) => {
         }
 
         console.log(`📊 AI Request: [${settings.aiProvider || 'ollama'}] ${history.length} messages`);
+        console.log(`📚 Context: docContext=${!!docContext}, searchContext=${!!searchContext}`);
 
-        // Use RAG model override if active
-        const aiOptions = {};
-        if ((docContext || searchContext) && settings.rag && settings.rag.model) {
-            aiOptions.provider = settings.rag.provider;
-            aiOptions.model = settings.rag.model;
-
-            // STRICTLY use RAG settings for the provider, ignoring global/main config
-            const ragBaseUrl = settings.rag.baseUrl || 'http://localhost:11434';
-
-            if (settings.rag.provider === 'ollama') {
-                // Force overwrite ollama config to use ONLY RAG URL
-                settings.ollama = { baseUrl: ragBaseUrl };
-            } else if (settings.rag.provider === 'custom') {
-                settings.custom = { baseUrl: ragBaseUrl };
-            }
-            console.log(`🔍 RAG Override: [${aiOptions.provider}] ${aiOptions.model} @ ${ragBaseUrl}`);
-        }
-
-        const { stream, parser } = await aiService.getStream(settings, history, aiOptions);
+        // Note: RAG model is used for embeddings/retrieval in vectorService
+        // Main model is ALWAYS used for generation (with context in prompt)
+        const { stream, parser } = await aiService.getStream(settings, history);
 
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');

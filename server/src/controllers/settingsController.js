@@ -46,7 +46,7 @@ exports.getSettings = async (req, res) => {
 exports.updateSettings = async (req, res) => {
     try {
         // Extract only non-sensitive fields
-        const { aiProvider, ollama, systemInstructions, historyWindowSize, theme } = req.body;
+        const { aiProvider, ollama, systemInstructions, historyWindowSize, theme, timezone, country } = req.body;
 
         // Debug: Log incoming RAG data
         console.log('📝 Updating settings - RAG data received:', req.body.rag);
@@ -72,7 +72,9 @@ exports.updateSettings = async (req, res) => {
             'rag.enabled': req.body.rag?.enabled,
             systemInstructions,
             historyWindowSize,
-            theme
+            theme,
+            timezone,
+            country
         };
 
         // Remove undefined values

@@ -14,7 +14,7 @@ const BackgroundContainer = styled(Box)<BackgroundContainerProps>(({ mode }) => 
     height: '100%',
     zIndex: -1,
     overflow: 'hidden',
-    background: (mode === 'dark' || mode === 'system') ? '#0a0a0a' : '#ffffff',
+    background: (mode === 'dark' || mode === 'system') ? '#212121' : '#ffffff',
 }));
 
 interface ParticleProps {
@@ -45,13 +45,13 @@ const Particle = styled('div')<ParticleProps>(
     })
 );
 
-const AnimatedBackground: React.FC = () => {
+const AnimatedBackground: React.FC = React.memo(() => {
     const { mode } = useThemeMode();
     const particles = useRef<Array<{ size: number; top: number; left: number; delay: number; duration: number }>>([]);
 
     useEffect(() => {
         if (particles.current.length === 0) {
-            for (let i = 0; i < 15; i++) {
+            for (let i = 0; i < 8; i++) {
                 particles.current.push({
                     size: Math.random() * 150 + 80,
                     top: Math.random() * 100,
@@ -84,6 +84,6 @@ const AnimatedBackground: React.FC = () => {
             ))}
         </BackgroundContainer>
     );
-};
+});
 
 export default AnimatedBackground;

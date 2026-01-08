@@ -60,11 +60,21 @@ const SharedChatPage: React.FC = () => {
     }, [token]);
 
     return (
-        <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: resolvedMode === 'dark' ? '#0a0a0a' : '#ffffff', color: resolvedMode === 'dark' ? '#fff' : '#000' }}>
+        <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: resolvedMode === 'dark' ? '#212121' : '#ffffff', color: resolvedMode === 'dark' ? '#fff' : '#000' }}>
             {/* Header */}
             <Box sx={{
-                p: 2,
-                borderBottom: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                p: { xs: 1.5, sm: 2 },
+                background: resolvedMode === 'dark'
+                    ? 'rgba(33, 33, 33, 0.7)'
+                    : 'rgba(255, 255, 255, 0.7)',
+                backdropFilter: 'blur(20px) saturate(150%)',
+                WebkitBackdropFilter: 'blur(20px) saturate(150%)',
+                borderBottom: resolvedMode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.08)'
+                    : '1px solid rgba(0,0,0,0.08)',
+                boxShadow: resolvedMode === 'dark'
+                    ? '0 4px 24px rgba(0, 0, 0, 0.2)'
+                    : '0 4px 24px rgba(0, 0, 0, 0.05)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
@@ -119,8 +129,8 @@ const SharedChatPage: React.FC = () => {
                                         height: 28,
                                         bgcolor: msg.role === 'user'
                                             ? (resolvedMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)')
-                                            : (resolvedMode === 'dark' ? '#fff' : '#0a0a0a'),
-                                        color: msg.role === 'user' ? 'inherit' : (resolvedMode === 'dark' ? '#0a0a0a' : '#fff'),
+                                            : (resolvedMode === 'dark' ? '#fff' : '#212121'),
+                                        color: msg.role === 'user' ? 'inherit' : (resolvedMode === 'dark' ? '#212121' : '#fff'),
                                         fontSize: 12,
                                     }}
                                 >
@@ -147,8 +157,8 @@ const SharedChatPage: React.FC = () => {
                                     px: 4,
                                     py: 1.5,
                                     fontWeight: 600,
-                                    bgcolor: mode === 'dark' ? '#fff' : '#0a0a0a',
-                                    color: mode === 'dark' ? '#0a0a0a' : '#fff',
+                                    bgcolor: mode === 'dark' ? '#fff' : '#212121',
+                                    color: mode === 'dark' ? '#212121' : '#fff',
                                     '&:hover': { bgcolor: mode === 'dark' ? '#e0e0e0' : '#333' }
                                 }}
                             >

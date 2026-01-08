@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Box, Drawer, List, ListItemButton, ListItemText, TextField, IconButton, Typography, Avatar, Tooltip, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, ListItemIcon, Divider, useMediaQuery, useTheme } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import SendIcon from '@mui/icons-material/Send';
@@ -34,8 +34,8 @@ import { useThemeMode } from '../context/ThemeContext';
 
 const DRAWER_WIDTH = 260;
 
-// Helper Component for Chat Items
-const ChatListItem = ({ chat, selected, onSelect, onContextMenu, resolvedMode }: any) => (
+// Helper Component for Chat Items - Memoized to prevent unnecessary re-renders
+const ChatListItem = React.memo(({ chat, selected, onSelect, onContextMenu, resolvedMode }: any) => (
     <ListItemButton
         selected={selected}
         onClick={onSelect}
@@ -66,7 +66,13 @@ const ChatListItem = ({ chat, selected, onSelect, onContextMenu, resolvedMode }:
             <MoreHorizIcon sx={{ fontSize: 16 }} />
         </IconButton>
     </ListItemButton>
-);
+), (prevProps, nextProps) => {
+    // Only re-render if relevant props changed
+    return prevProps.chat._id === nextProps.chat._id &&
+        prevProps.chat.title === nextProps.chat.title &&
+        prevProps.selected === nextProps.selected &&
+        prevProps.resolvedMode === nextProps.resolvedMode;
+});
 
 const ChatPage: React.FC = () => {
     const [messages, setMessages] = useState<any[]>([]);
@@ -217,6 +223,21 @@ const ChatPage: React.FC = () => {
     // Smart scroll: Scroll to bottom only when NEW message is added (not during streaming)
     // Track message count to detect when a new message is added
     const prevMessageCountRef = useRef(0);
+    const scrollTimeoutRef = useRef<number | null>(null);
+
+    // Throttled scroll handler to detect user scroll
+    const handleScroll = useCallback(() => {
+        if (scrollTimeoutRef.current) {
+            clearTimeout(scrollTimeoutRef.current);
+        }
+        scrollTimeoutRef.current = setTimeout(() => {
+            if (scrollRef.current) {
+                const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+                const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+                setUserScrolledUp(!isAtBottom);
+            }
+        }, 100); // Throttle to 100ms
+    }, []);
 
     useEffect(() => {
         // If message count increased or content is being added during streaming
@@ -263,7 +284,7 @@ const ChatPage: React.FC = () => {
 
     // --- Chat Management Handlers ---
 
-    const handleContextMenu = (event: React.MouseEvent, chatId: string) => {
+    const handleContextMenu = useCallback((event: React.MouseEvent, chatId: string) => {
         event.preventDefault();
         event.stopPropagation();
         setContextMenu({
@@ -272,11 +293,11 @@ const ChatPage: React.FC = () => {
             chatId,
         });
         setTargetChatId(chatId);
-    };
+    }, []);
 
-    const handleCloseContextMenu = () => {
+    const handleCloseContextMenu = useCallback(() => {
         setContextMenu(null);
-    };
+    }, []);
 
     const handleRenameInit = () => {
         const chat = chats.find(c => c._id === targetChatId);
@@ -394,12 +415,12 @@ const ChatPage: React.FC = () => {
         }
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             processFile(file);
         }
-    };
+    }, []);
 
     const processFile = (file: File) => {
         const isImage = file.type.startsWith('image/');
@@ -423,7 +444,7 @@ const ChatPage: React.FC = () => {
         }
     };
 
-    const handlePaste = (e: React.ClipboardEvent) => {
+    const handlePaste = useCallback((e: React.ClipboardEvent) => {
         const items = e.clipboardData.items;
         for (let i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
@@ -431,7 +452,7 @@ const ChatPage: React.FC = () => {
                 if (file) processFile(file);
             }
         }
-    };
+    }, []);
 
     const handleSend = async () => {
         if ((!input.trim() && !attachedFile) || !currentChatId || isLoading || isUploading) return;
@@ -716,40 +737,40 @@ const ChatPage: React.FC = () => {
         }
     };
 
-    const handleStop = () => {
+    const handleStop = useCallback(() => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
             setIsLoading(false);
             setIsSearching(false);
         }
-    };
+    }, []);
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
         }
-    };
+    }, [handleSend]);
 
-    const handleCopy = async (content: string) => {
+    const handleCopy = useCallback(async (content: string) => {
         try {
             await navigator.clipboard.writeText(content);
             // You could add a toast notification here if you want
         } catch (err) {
             console.error('Failed to copy:', err);
         }
-    };
+    }, []);
 
-    const handleEditMessage = (index: number, content: string) => {
+    const handleEditMessage = useCallback((index: number, content: string) => {
         setEditingMessageIndex(index);
         setEditedContent(content);
-    };
+    }, []);
 
-    const handleCancelEdit = () => {
+    const handleCancelEdit = useCallback(() => {
         setEditingMessageIndex(null);
         setEditedContent('');
-    };
+    }, []);
 
     const handleSaveEdit = async (index: number) => {
         if (!editedContent.trim() || !currentChatId) return;
@@ -758,7 +779,7 @@ const ChatPage: React.FC = () => {
         const updatedMessages = [...messages];
         updatedMessages[index] = { ...updatedMessages[index], content: editedContent };
 
-        // Remove any assistant messages after this one
+        // Remove all messages after the edited one (including assistant responses)
         const messagesToKeep = updatedMessages.slice(0, index + 1);
         setMessages(messagesToKeep);
 
@@ -766,8 +787,47 @@ const ChatPage: React.FC = () => {
         setEditingMessageIndex(null);
         setEditedContent('');
 
-        // Trigger regeneration with the edited message
-        await handleRegenerate(index);
+        try {
+            // Update the chat messages in the database (replace the entire messages array)
+            await api.patch(`/chats/${currentChatId}`, {
+                messages: messagesToKeep
+            });
+
+            // Now trigger regeneration from this edited message
+            // Add AI placeholder for the response
+            setMessages(prev => [...prev, { role: 'assistant', content: '', metadata: { senderName: 'Jarvis' } }]);
+
+            setIsLoading(true);
+            const endpoint = isGroupChat(currentChat)
+                ? `/api/chats/${currentChatId}/group-message`
+                : `/api/chats/${currentChatId}/send`;
+
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    content: editedContent,
+                    webSearch: webSearchEnabled,
+                    useRag: false
+                })
+            });
+
+            if (!response.ok) throw new Error('Regeneration failed');
+            await executeAIStep(response);
+        } catch (error) {
+            console.error('Failed to save edited message:', error);
+            handleAIError(error);
+        } finally {
+            setIsLoading(false);
+            abortControllerRef.current = null;
+        }
     };
 
     return (
@@ -783,8 +843,18 @@ const ChatPage: React.FC = () => {
                     '& .MuiDrawer-paper': {
                         width: DRAWER_WIDTH,
                         boxSizing: 'border-box',
-                        // Let ThemeContext handle background/glass
-                        borderRight: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                        // Enhanced glassmorphism for sidebar
+                        background: resolvedMode === 'dark'
+                            ? 'rgba(33, 33, 33, 0.7)'
+                            : 'rgba(245, 245, 245, 0.7)',
+                        backdropFilter: 'blur(30px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+                        borderRight: resolvedMode === 'dark'
+                            ? '1px solid rgba(255,255,255,0.08)'
+                            : '1px solid rgba(0,0,0,0.08)',
+                        boxShadow: resolvedMode === 'dark'
+                            ? '4px 0 24px rgba(0, 0, 0, 0.3)'
+                            : '4px 0 24px rgba(0, 0, 0, 0.08)',
                     },
                 }}
             >
@@ -983,7 +1053,7 @@ const ChatPage: React.FC = () => {
             </Drawer>
 
             {/* Main Content */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', ml: 0 }}>
+            <Box ref={scrollRef} onScroll={handleScroll} sx={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', height: '100vh', ml: 0, px: 2 }}>
                 {/* Header */}
                 <Box sx={{
                     display: 'flex',
@@ -1102,8 +1172,8 @@ const ChatPage: React.FC = () => {
                                         height: 28,
                                         bgcolor: msg.role === 'user'
                                             ? (resolvedMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)')
-                                            : (resolvedMode === 'dark' ? '#fff' : '#0a0a0a'),
-                                        color: msg.role === 'user' ? 'inherit' : (resolvedMode === 'dark' ? '#0a0a0a' : '#fff'),
+                                            : (resolvedMode === 'dark' ? '#fff' : '#212121'),
+                                        color: msg.role === 'user' ? 'inherit' : (resolvedMode === 'dark' ? '#212121' : '#fff'),
                                         fontSize: 12,
                                     }}
                                 >
@@ -1121,25 +1191,47 @@ const ChatPage: React.FC = () => {
                                         {msg.role === 'user' ? 'You' : 'Jarvis'}
                                     </Typography>
 
-                                    {/* Message Container/Bubble */}
                                     <Box
                                         sx={{
-                                            minWidth: editingMessageIndex === i ? '300px' : 'auto',
-                                            maxWidth: editingMessageIndex === i ? '95%' : (msg.role === 'user' ? '70%' : '90%'),
-                                            width: editingMessageIndex === i ? '95%' : 'auto',
-                                            bgcolor: msg.role === 'user'
-                                                ? (resolvedMode === 'dark' ? 'rgba(0, 229, 255, 0.15)' : 'rgba(0, 112, 243, 0.1)')
-                                                : (resolvedMode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.6)'),
-                                            borderRadius: 2,
-                                            px: 2,
-                                            py: 1.5,
-                                            backdropFilter: 'blur(10px)',
-                                            boxShadow: msg.role === 'user' ? 'none' : '0 2px 8px rgba(0,0,0,0.05)',
-                                            border: resolvedMode === 'dark'
-                                                ? '1px solid rgba(255, 255, 255, 0.1)'
-                                                : '1px solid rgba(0, 0, 0, 0.05)',
-                                            transition: 'max-width 0.2s ease-in-out',
-                                            wordBreak: 'break-word', // Ensure long text wraps
+                                            minWidth: editingMessageIndex === i ? { xs: '280px', sm: '300px' } : 'auto',
+                                            maxWidth: editingMessageIndex === i
+                                                ? { xs: '95%', sm: '90%', md: '85%' }
+                                                : (msg.role === 'user'
+                                                    ? { xs: '85%', sm: '75%', md: '70%' }
+                                                    : { xs: '95%', sm: '92%', md: '90%' }
+                                                ),
+                                            width: editingMessageIndex === i ? { xs: '95%', sm: '90%' } : 'auto',
+                                            // Enhanced glassmorphism effect for USER only
+                                            background: msg.role === 'user'
+                                                ? (resolvedMode === 'dark'
+                                                    ? 'rgba(255, 255, 255, 0.05)'
+                                                    : 'rgba(0, 112, 243, 0.08)')
+                                                : 'transparent',
+                                            backdropFilter: msg.role === 'user' ? 'blur(20px) saturate(150%)' : 'none',
+                                            WebkitBackdropFilter: msg.role === 'user' ? 'blur(20px) saturate(150%)' : 'none',
+                                            borderRadius: { xs: 2, sm: 2.5 },
+                                            px: msg.role === 'user' ? { xs: 1.5, sm: 2 } : 0,
+                                            py: msg.role === 'user' ? { xs: 1.2, sm: 1.5 } : 0,
+                                            boxShadow: msg.role === 'user'
+                                                ? (resolvedMode === 'dark'
+                                                    ? '0 4px 16px rgba(0, 0, 0, 0.2)'
+                                                    : '0 4px 16px rgba(0, 112, 243, 0.12)')
+                                                : 'none',
+                                            border: msg.role === 'user'
+                                                ? (resolvedMode === 'dark'
+                                                    ? '1px solid rgba(255, 255, 255, 0.1)'
+                                                    : '1px solid rgba(0, 112, 243, 0.15)')
+                                                : 'none',
+                                            transition: 'all 0.2s ease-in-out',
+                                            wordBreak: 'break-word',
+                                            // Hover effect
+                                            '&:hover': {
+                                                boxShadow: msg.role === 'user'
+                                                    ? (resolvedMode === 'dark'
+                                                        ? '0 6px 20px rgba(0, 0, 0, 0.3)'
+                                                        : '0 6px 20px rgba(0, 112, 243, 0.15)')
+                                                    : 'none',
+                                            },
                                         }}
                                     >
                                         {msg.image && (
@@ -1290,7 +1382,20 @@ const ChatPage: React.FC = () => {
                 </Box>
 
                 {/* Input Area */}
-                <Box sx={{ p: 2 }}>
+                <Box sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    background: resolvedMode === 'dark'
+                        ? 'rgba(33, 33, 33, 0.7)'
+                        : 'rgba(255, 255, 255, 0.7)',
+                    backdropFilter: 'blur(20px) saturate(150%)',
+                    WebkitBackdropFilter: 'blur(20px) saturate(150%)',
+                    borderTop: resolvedMode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.08)'
+                        : '1px solid rgba(0,0,0,0.08)',
+                    boxShadow: resolvedMode === 'dark'
+                        ? '0 -4px 24px rgba(0, 0, 0, 0.2)'
+                        : '0 -4px 24px rgba(0, 0, 0, 0.05)',
+                }}>
                     <Box sx={{ width: '100%', maxWidth: 1000, mx: 'auto' }}>
                         {/* Attachment Preview */}
                         {attachedFile && (
@@ -1437,8 +1542,8 @@ const ChatPage: React.FC = () => {
                                 disabled={(!input.trim() && !attachedFile && !isLoading) || isUploading}
                                 size="small"
                                 sx={{
-                                    bgcolor: (input.trim() || attachedFile || isLoading) ? (resolvedMode === 'dark' ? '#fff' : '#0a0a0a') : 'transparent',
-                                    color: (input.trim() || attachedFile || isLoading) ? (resolvedMode === 'dark' ? '#0a0a0a' : '#fff') : 'inherit',
+                                    bgcolor: (input.trim() || attachedFile || isLoading) ? (resolvedMode === 'dark' ? '#fff' : '#212121') : 'transparent',
+                                    color: (input.trim() || attachedFile || isLoading) ? (resolvedMode === 'dark' ? '#212121' : '#fff') : 'inherit',
                                     '&:hover': { bgcolor: (input.trim() || attachedFile || isLoading) ? (resolvedMode === 'dark' ? '#eee' : '#222') : 'transparent' },
                                     '&.Mui-disabled': { bgcolor: 'transparent' }
                                 }}
@@ -1535,8 +1640,8 @@ const ChatPage: React.FC = () => {
                                 setShareDialogOpen(false);
                             }}
                             sx={{
-                                bgcolor: resolvedMode === 'dark' ? '#fff' : '#0a0a0a',
-                                color: resolvedMode === 'dark' ? '#0a0a0a' : '#fff',
+                                bgcolor: resolvedMode === 'dark' ? '#fff' : '#212121',
+                                color: resolvedMode === 'dark' ? '#212121' : '#fff',
                                 textTransform: 'none',
                                 fontWeight: 600,
                                 borderRadius: 1.5,
@@ -1560,14 +1665,16 @@ const ChatPage: React.FC = () => {
                 onClose={() => setModelMenuAnchor(null)}
                 PaperProps={{
                     sx: {
-                        bgcolor: resolvedMode === 'dark' ? '#1a1a1a' : '#fff',
-                        color: resolvedMode === 'dark' ? '#fff' : '#0a0a0a',
-                        border: '1px solid rgba(255,255,255,0.1)',
+                        bgcolor: resolvedMode === 'dark' ? 'rgba(26, 26, 26, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+                        backdropFilter: 'blur(20px)',
+                        WebkitBackdropFilter: 'blur(20px)',
+                        color: resolvedMode === 'dark' ? '#fff' : '#212121',
+                        border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
                         minWidth: 200,
                         maxHeight: 400,
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                        borderRadius: 1,
-                        mt: -1
+                        boxShadow: resolvedMode === 'dark' ? '0 8px 32px rgba(0,0,0,0.4)' : '0 8px 32px rgba(0,0,0,0.1)',
+                        borderRadius: 2,
+                        mt: 1
                     }
                 }}
                 transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}

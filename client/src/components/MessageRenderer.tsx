@@ -10,7 +10,7 @@ interface MessageRendererProps {
 }
 
 // Styled components for markdown elements
-const MarkdownContainer = styled(Box)(({ theme }) => ({
+const MarkdownContainer = styled(Box)(() => ({
     '& p': {
         margin: '0.5rem 0',
         lineHeight: 1.7,
@@ -39,8 +39,8 @@ const MarkdownContainer = styled(Box)(({ theme }) => ({
     '& blockquote': {
         margin: '0.5rem 0',
         padding: '0.5rem 1rem',
-        borderLeft: `3px solid ${theme.palette.primary.main}`,
-        background: 'rgba(0, 229, 255, 0.1)',
+        borderLeft: `3px solid rgba(255, 255, 255, 0.2)`,
+        background: 'rgba(255, 255, 255, 0.05)',
         borderRadius: '0 8px 8px 0',
     },
     '& hr': {
@@ -59,44 +59,47 @@ const MarkdownContainer = styled(Box)(({ theme }) => ({
         textAlign: 'left',
     },
     '& th': {
-        background: 'rgba(0, 229, 255, 0.1)',
+        background: 'rgba(255, 255, 255, 0.05)',
         fontWeight: 600,
     },
 }));
 
-const InlineCode = styled('code')(({ theme }) => ({
-    background: 'rgba(0, 229, 255, 0.15)',
+const InlineCode = styled('code')(() => ({
+    background: 'rgba(150, 150, 150, 0.2)',
     padding: '2px 6px',
-    borderRadius: 4,
-    fontSize: '0.875em',
+    borderRadius: 6,
+    fontSize: '0.85em',
     fontFamily: '"Fira Code", "Consolas", monospace',
-    color: theme.palette.primary.main,
+    color: 'inherit',
+    border: '1px solid rgba(255,255,255,0.1)'
 }));
 
 const StyledLink = styled(Link)(({ theme }) => ({
-    color: theme.palette.secondary.main,
-    textDecoration: 'none',
+    color: theme.palette.mode === 'dark' ? '#fff' : theme.palette.secondary.main,
+    textDecoration: 'underline',
+    textDecorationColor: 'rgba(255,255,255,0.3)',
     '&:hover': {
-        textDecoration: 'underline',
+        textDecoration: 'none',
     },
 }));
 
-const Citation = styled('span')(({ theme }) => ({
+const Citation = styled('span')(() => ({
     verticalAlign: 'super',
     fontSize: '0.7rem',
     fontWeight: 700,
-    color: theme.palette.primary.main,
-    background: 'rgba(0, 229, 255, 0.1)',
+    color: 'inherit',
+    background: 'rgba(255, 255, 255, 0.1)',
     padding: '0 4px',
     borderRadius: '4px',
     marginLeft: '2px',
     cursor: 'default',
     userSelect: 'none',
+    opacity: 0.7
 }));
 
-const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
+const MessageRenderer: React.FC<MessageRendererProps> = React.memo(({ content }) => {
     // Process content to wrap citations [1], [2], [Doc 1], etc.
-    const processCitations = (text: string) => {
+    const processCitations = React.useCallback((text: string) => {
         // Broad regex to catch [1], [Doc 1], [Source 1]
         const parts = text.split(/(\[Doc \d+\]|\[\d+\])/g);
         return parts.map((part, i) => {
@@ -105,8 +108,8 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
                     <Citation
                         key={i}
                         sx={{
-                            background: part.includes('Doc') ? 'rgba(0, 255, 127, 0.15)' : 'rgba(0, 229, 255, 0.1)',
-                            border: `1px solid ${part.includes('Doc') ? 'rgba(0, 255, 127, 0.3)' : 'rgba(0, 229, 255, 0.3)'}`
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)'
                         }}
                     >
                         {part}
@@ -115,7 +118,7 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
             }
             return part;
         });
-    };
+    }, []);
 
     return (
         <MarkdownContainer>
@@ -181,13 +184,22 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
 
                     // Headings
                     h1({ children }) {
-                        return <Typography variant="h5" component="h1" sx={{ mt: 2, mb: 1 }}>{children}</Typography>;
+                        return <Typography variant="h5" component="h1" color="text.primary" sx={{ mt: 2, mb: 1 }}>{children}</Typography>;
                     },
                     h2({ children }) {
-                        return <Typography variant="h6" component="h2" sx={{ mt: 2, mb: 1 }}>{children}</Typography>;
+                        return <Typography variant="h6" component="h2" color="text.primary" sx={{ mt: 2, mb: 1 }}>{children}</Typography>;
                     },
                     h3({ children }) {
-                        return <Typography variant="subtitle1" component="h3" fontWeight={600} sx={{ mt: 1.5, mb: 0.5 }}>{children}</Typography>;
+                        return <Typography variant="subtitle1" component="h3" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5 }}>{children}</Typography>;
+                    },
+                    h4({ children }) {
+                        return <Typography variant="subtitle2" component="h4" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5 }}>{children}</Typography>;
+                    },
+                    h5({ children }) {
+                        return <Typography variant="button" component="h5" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5, display: 'block' }}>{children}</Typography>;
+                    },
+                    h6({ children }) {
+                        return <Typography variant="caption" component="h6" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5, display: 'block', textTransform: 'uppercase' }}>{children}</Typography>;
                     },
 
                     // Blockquote
@@ -221,6 +233,9 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content }) => {
             </ReactMarkdown>
         </MarkdownContainer>
     );
-};
+}, (prevProps, nextProps) => {
+    // Only re-render if content actually changed
+    return prevProps.content === nextProps.content && prevProps.role === nextProps.role;
+});
 
 export default MessageRenderer;

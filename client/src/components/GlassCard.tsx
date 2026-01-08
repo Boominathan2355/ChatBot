@@ -29,8 +29,8 @@ interface GlassCardProps extends CardProps {
     children: React.ReactNode;
 }
 
-const GlassCard: React.FC<GlassCardProps> = ({ children, ...props }) => {
+const GlassCard: React.FC<GlassCardProps> = React.memo(({ children, ...props }) => {
     return <StyledGlassCard {...props}>{children}</StyledGlassCard>;
-};
+});
 
 export default GlassCard;

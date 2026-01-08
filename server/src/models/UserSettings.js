@@ -58,7 +58,9 @@ const userSettingsSchema = new mongoose.Schema({
         baseUrl: { type: String, default: '' } // For custom RAG provider URLs
     },
     historyWindowSize: { type: Number, default: 20 },
-    theme: { type: String, default: 'dark' }
+    theme: { type: String, default: 'dark' },
+    timezone: { type: String, default: 'Asia/Kolkata' },
+    country: { type: String, default: 'India' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('UserSettings', userSettingsSchema);

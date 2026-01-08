@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Dialog, DialogContent, Box, Typography, List, ListItemButton,
@@ -39,11 +39,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
 
-    const handleLogout = () => {
+    const handleLogout = useCallback(() => {
         logout();
         onClose();
         navigate('/login');
-    };
+    }, [logout, onClose, navigate]);
 
     const handleDeleteAccount = async () => {
         try {
@@ -83,6 +83,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
     const [settingsLoaded, setSettingsLoaded] = useState(false);
 
     const [systemInstructions, setSystemInstructions] = useState('');
+    const [timezone, setTimezone] = useState('Asia/Kolkata');
+    const [country, setCountry] = useState('India');
 
     React.useEffect(() => {
         if (open) {
@@ -90,6 +92,22 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
             loadSettings();
         }
     }, [open]);
+
+    // Auto-save timezone and country when they change (debounced)
+    React.useEffect(() => {
+        if (!settingsLoaded) return;
+
+        const timeoutId = setTimeout(async () => {
+            try {
+                await api.put('/settings', { timezone, country });
+                console.log('✅ Auto-saved timezone/country');
+            } catch (e) {
+                console.error('Failed to auto-save:', e);
+            }
+        }, 2000); // 2 second debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [timezone, country]);
 
     // Load models AFTER settings are loaded
     React.useEffect(() => {
@@ -167,6 +185,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                     enabled: data.rag.enabled !== false // Default to true
                 });
                 setSystemInstructions(data.systemInstructions || '');
+                setTimezone(data.timezone || 'Asia/Kolkata');
+                setCountry(data.country || 'India');
             }
             setSettingsLoaded(true);
         } catch (e) {
@@ -175,7 +195,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
         }
     };
 
-    const handleSaveSettings = async () => {
+    const handleSaveSettings = useCallback(async () => {
         try {
             await api.put('/settings', {
                 aiProvider,
@@ -188,13 +208,15 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                 azure: { endpoint: azureConfig.endpoint, deploymentName: azureConfig.deploymentName },
                 custom: { baseUrl: customConfig.baseUrl, model: customConfig.model },
                 rag: ragConfig,
-                systemInstructions
+                systemInstructions,
+                timezone,
+                country
             });
             alert('Settings saved successfully!');
         } catch (e: any) {
             alert(e.response?.data?.message || 'Failed to save settings');
         }
-    };
+    }, [aiProvider, ollamaConfig, openaiConfig, anthropicConfig, deepseekConfig, grokConfig, awsConfig, azureConfig, customConfig, ragConfig, systemInstructions, timezone, country]);
 
     const handleSaveApiKey = async (provider: string) => {
         try {
@@ -341,6 +363,57 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Language</Typography>
                             <Typography sx={{ fontSize: 14 }}>Auto-detect</Typography>
+                        </Box>
+                        <Divider sx={{ opacity: 0.1 }} />
+
+                        {/* Timezone */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Timezone</Typography>
+                            <FormControl size="small" variant="standard" sx={{ minWidth: 180 }}>
+                                <Select
+                                    value={timezone}
+                                    onChange={(e) => setTimezone(e.target.value)}
+                                    disableUnderline
+                                    sx={{ fontSize: 14 }}
+                                >
+                                    <MenuItem value="UTC">UTC</MenuItem>
+                                    <MenuItem value="America/New_York">America/New York (EST)</MenuItem>
+                                    <MenuItem value="America/Los_Angeles">America/Los Angeles (PST)</MenuItem>
+                                    <MenuItem value="Europe/London">Europe/London (GMT)</MenuItem>
+                                    <MenuItem value="Europe/Paris">Europe/Paris (CET)</MenuItem>
+                                    <MenuItem value="Asia/Tokyo">Asia/Tokyo (JST)</MenuItem>
+                                    <MenuItem value="Asia/Shanghai">Asia/Shanghai (CST)</MenuItem>
+                                    <MenuItem value="Asia/Kolkata">Asia/Kolkata (IST)</MenuItem>
+                                    <MenuItem value="Australia/Sydney">Australia/Sydney (AEST)</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Box>
+                        <Divider sx={{ opacity: 0.1 }} />
+
+                        {/* Country */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Country</Typography>
+                            <FormControl size="small" variant="standard" sx={{ minWidth: 180 }}>
+                                <Select
+                                    value={country}
+                                    onChange={(e) => setCountry(e.target.value)}
+                                    disableUnderline
+                                    sx={{ fontSize: 14 }}
+                                    displayEmpty
+                                >
+                                    <MenuItem value="">Not set</MenuItem>
+                                    <MenuItem value="United States">United States</MenuItem>
+                                    <MenuItem value="United Kingdom">United Kingdom</MenuItem>
+                                    <MenuItem value="Canada">Canada</MenuItem>
+                                    <MenuItem value="Australia">Australia</MenuItem>
+                                    <MenuItem value="India">India</MenuItem>
+                                    <MenuItem value="Germany">Germany</MenuItem>
+                                    <MenuItem value="France">France</MenuItem>
+                                    <MenuItem value="Japan">Japan</MenuItem>
+                                    <MenuItem value="China">China</MenuItem>
+                                    <MenuItem value="Brazil">Brazil</MenuItem>
+                                </Select>
+                            </FormControl>
                         </Box>
 
                     </Box>
