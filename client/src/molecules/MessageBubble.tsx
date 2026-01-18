@@ -4,8 +4,7 @@ import {
     Avatar,
     Typography,
     TextField,
-    Button,
-    CircularProgress
+    Button
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -13,6 +12,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import EditIcon from '@mui/icons-material/Edit';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { MessageRenderer, ImageMessage } from '../components';
+import ThinkingIndicator from '../components/ThinkingIndicator';
 import { ActionButton } from '../atoms';
 import type { ResolvedMode } from '../types';
 import { isDarkMode } from '../types';
@@ -46,7 +46,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     message,
     index,
     isLoading,
-    isLastMessage,
     nextMessage,
     resolvedMode,
     onCopy,
@@ -221,10 +220,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             )}
                             {!message.content &&
                                 isAssistant &&
-                                isLastMessage &&
                                 isLoading && (
-                                    <Box sx={{ pt: 0.5 }}>
-                                        <CircularProgress size={14} />
+                                    <Box sx={{ pt: 1, pl: 0.5 }}>
+                                        <ThinkingIndicator resolvedMode={resolvedMode} />
                                     </Box>
                                 )}
                         </>

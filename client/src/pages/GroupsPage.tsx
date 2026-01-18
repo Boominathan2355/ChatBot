@@ -13,6 +13,8 @@ import { GlassCard, GlassButton } from '../components';
 import { useThemeMode } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import SettingsDialog from '../components/SettingsDialog';
+import { ErrorBoundary } from 'react-error-boundary';
+import OopsPage from './OopsPage';
 
 const DRAWER_WIDTH = 260;
 
@@ -334,94 +336,104 @@ const GroupsPage: React.FC = () => {
 
             {/* Main Content Area - Groups Management */}
             <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', bgcolor: 'transparent' }}>
-                {/* Header (Simplified for Groups) */}
-                <Box sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    p: 2,
-                    borderBottom: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
-                }}>
-                    {isMobile && (
-                        <IconButton onClick={() => setSidebarOpen(true)} size="small" sx={{ mr: 1 }}>
-                            <MenuIcon />
-                        </IconButton>
-                    )}
-                    <Typography variant="h6" fontWeight={600}>Manage Groups</Typography>
-                    <GlassButton variant="contained" size="small" onClick={() => setOpenDialog(true)}>
-                        + New Group
-                    </GlassButton>
-                </Box>
+                <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
+                    <OopsPage
+                        title="Groups Error"
+                        description={error.message || "Something went wrong in the groups page."}
+                        onReset={resetErrorBoundary}
+                        isError={true}
+                        sx={{ height: '100%' }}
+                    />
+                )}>
+                    {/* Header (Simplified for Groups) */}
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        p: 2,
+                        borderBottom: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                    }}>
+                        {isMobile && (
+                            <IconButton onClick={() => setSidebarOpen(true)} size="small" sx={{ mr: 1 }}>
+                                <MenuIcon />
+                            </IconButton>
+                        )}
+                        <Typography variant="h6" fontWeight={600}>Manage Groups</Typography>
+                        <GlassButton variant="contained" size="small" onClick={() => setOpenDialog(true)}>
+                            + New Group
+                        </GlassButton>
+                    </Box>
 
-                {/* Groups Content */}
-                <Box sx={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    p: isMobile ? 2 : 3,
-                    // Visible scrollbar styling for main content
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.3) transparent' : 'rgba(0,0,0,0.3) transparent',
-                    '&::-webkit-scrollbar': {
-                        width: '8px',
-                    },
-                    '&::-webkit-scrollbar-track': {
-                        bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
-                        borderRadius: '4px',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                        bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
-                        borderRadius: '4px',
-                        border: '2px solid transparent',
-                        backgroundClip: 'padding-box',
-                        '&:hover': {
-                            bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+                    {/* Groups Content */}
+                    <Box sx={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        p: isMobile ? 2 : 3,
+                        // Visible scrollbar styling for main content
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.3) transparent' : 'rgba(0,0,0,0.3) transparent',
+                        '&::-webkit-scrollbar': {
+                            width: '8px',
                         },
-                    },
-                }}>
-                    <Container maxWidth="md">
-                        <GlassCard sx={{ p: 0, bgcolor: 'transparent', boxShadow: 'none' }}>
-                            {groups.length === 0 ? (
-                                <Box sx={{ textAlign: 'center', py: 8 }}>
-                                    <GroupIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-                                    <Typography color="text.secondary">No groups yet. Create one to get started!</Typography>
-                                </Box>
-                            ) : (
-                                <List>
-                                    {groups.map((group: any) => (
-                                        <ListItem key={group._id}
-                                            sx={{
-                                                mb: 2,
-                                                bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                                                borderRadius: 3,
-                                                border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
-                                            }}
-                                            secondaryAction={
-                                                <Tooltip title="Start Chat">
-                                                    <IconButton edge="end" onClick={() => startGroupChat(group._id)} color="primary">
-                                                        <ChatIcon />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            }>
-                                            <ListItemButton sx={{ borderRadius: 2 }}>
-                                                <ListItemText
-                                                    primary={group.name}
-                                                    secondary={
-                                                        <>
-                                                            <Typography component="span" variant="body2" color="text.primary">
-                                                                {group.members.length} members
-                                                            </Typography>
-                                                            {group.description && ` — ${group.description}`}
-                                                        </>
-                                                    }
-                                                />
-                                            </ListItemButton>
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            )}
-                        </GlassCard>
-                    </Container>
-                </Box>
+                        '&::-webkit-scrollbar-track': {
+                            bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+                            borderRadius: '4px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                            bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
+                            borderRadius: '4px',
+                            border: '2px solid transparent',
+                            backgroundClip: 'padding-box',
+                            '&:hover': {
+                                bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+                            },
+                        },
+                    }}>
+                        <Container maxWidth="md">
+                            <GlassCard sx={{ p: 0, bgcolor: 'transparent', boxShadow: 'none' }}>
+                                {groups.length === 0 ? (
+                                    <Box sx={{ textAlign: 'center', py: 8 }}>
+                                        <GroupIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                                        <Typography color="text.secondary">No groups yet. Create one to get started!</Typography>
+                                    </Box>
+                                ) : (
+                                    <List>
+                                        {groups.map((group: any) => (
+                                            <ListItem key={group._id}
+                                                sx={{
+                                                    mb: 2,
+                                                    bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                                    borderRadius: 3,
+                                                    border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
+                                                }}
+                                                secondaryAction={
+                                                    <Tooltip title="Start Chat">
+                                                        <IconButton edge="end" onClick={() => startGroupChat(group._id)} color="primary">
+                                                            <ChatIcon />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                }>
+                                                <ListItemButton sx={{ borderRadius: 2 }}>
+                                                    <ListItemText
+                                                        primary={group.name}
+                                                        secondary={
+                                                            <>
+                                                                <Typography component="span" variant="body2" color="text.primary">
+                                                                    {group.members.length} members
+                                                                </Typography>
+                                                                {group.description && ` — ${group.description}`}
+                                                            </>
+                                                        }
+                                                    />
+                                                </ListItemButton>
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                )}
+                            </GlassCard>
+                        </Container>
+                    </Box>
+                </ErrorBoundary>
             </Box>
 
             {/* Create Group Dialog */}

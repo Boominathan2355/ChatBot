@@ -19,6 +19,11 @@ interface Chat {
     lastMessageAt?: string;
 }
 
+export interface ChatSettings {
+    tone: 'formal' | 'casual' | 'friendly' | 'fun' | 'professional';
+    mode: 'normal' | 'creative' | 'analytical' | 'educational';
+}
+
 interface ChatState {
     messages: Message[];
     chats: Chat[];
@@ -32,6 +37,7 @@ interface ChatState {
     // Context Menu State
     contextMenu: { mouseX: number; mouseY: number; chatId: string } | null;
     targetChatId: string | null;
+    chatSettings: ChatSettings;
 }
 
 // --- Initial State ---
@@ -53,7 +59,11 @@ const initialState: ChatState = {
         Story: true
     },
     contextMenu: null,
-    targetChatId: null
+    targetChatId: null,
+    chatSettings: {
+        tone: 'formal',
+        mode: 'normal'
+    }
 };
 
 // --- Async Thunks ---
@@ -150,9 +160,14 @@ export const sendMessage = (
                 Authorization: `Bearer ${localStorage.getItem('token')}`
             },
             body: JSON.stringify({
-                content: input || (imageObject
-                    ? 'Sent an image'
-                    : fileObject ? `Uploaded something` : ''), // Simplified for now
+                content: (() => {
+                    const { tone, mode } = _getState().chat.chatSettings;
+                    const systemPrefix = `[System: Respond in ${tone} tone and ${mode} mode] `;
+                    const userContent = input || (imageObject
+                        ? 'Sent an image'
+                        : fileObject ? `Uploaded something` : '');
+                    return `${systemPrefix}${userContent}`;
+                })(),
                 image: imageObject,
                 webSearch: webSearchEnabled,
                 useRag: false,
@@ -280,6 +295,12 @@ const chatSlice = createSlice({
             const { id, folder } = action.payload;
             const chat = state.chats.find(c => c._id === id);
             if (chat) chat.folder = folder;
+        },
+        setChatTone: (state, action: PayloadAction<ChatSettings['tone']>) => {
+            state.chatSettings.tone = action.payload;
+        },
+        setChatMode: (state, action: PayloadAction<ChatSettings['mode']>) => {
+            state.chatSettings.mode = action.payload;
         }
     },
     extraReducers: (builder) => {
@@ -336,7 +357,9 @@ export const {
     setTargetChatId,
     updateChatTitle,
     pinChat,
-    moveChatToFolder
+    moveChatToFolder,
+    setChatTone,
+    setChatMode
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

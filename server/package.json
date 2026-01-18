@@ -24,6 +24,7 @@
     "mongoose": "^9.1.1",
     "multer": "^2.0.2",
     "pdf-parse": "^2.4.5",
+    "puppeteer": "^24.35.0",
     "tesseract.js": "^7.0.0",
     "textract": "^2.5.0"
   },

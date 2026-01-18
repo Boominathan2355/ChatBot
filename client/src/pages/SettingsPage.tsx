@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { GlassCard, GlassButton } from '../components';
 import ThemeToggle from '../components/ThemeToggle';
+import { ErrorBoundary } from 'react-error-boundary';
+import OopsPage from './OopsPage';
 
 const SettingsPage: React.FC = () => {
     const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
@@ -93,74 +95,84 @@ const SettingsPage: React.FC = () => {
                     <ThemeToggle />
                 </Box>
 
-                <GlassCard sx={{ p: 4 }}>
-                    <Typography variant="h6" gutterBottom>Ollama Configuration</Typography>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
+                    <OopsPage
+                        title="Settings Error"
+                        description={error.message || "Something went wrong in settings."}
+                        onReset={resetErrorBoundary}
+                        isError={true}
+                        sx={{ height: 'auto', minHeight: 400, pt: 4, pb: 4 }}
+                    />
+                )}>
+                    <GlassCard sx={{ p: 4 }}>
+                        <Typography variant="h6" gutterBottom>Ollama Configuration</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <TextField
+                                fullWidth
+                                label="Ollama Base URL"
+                                value={ollamaBaseUrl}
+                                onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                                margin="normal"
+                                helperText="e.g., http://localhost:11434"
+                            />
+                            <GlassButton
+                                variant="outlined"
+                                onClick={() => testConnection(false)}
+                                sx={{ mt: 2 }}
+                                disabled={loadingModels}
+                            >
+                                {loadingModels ? <CircularProgress size={20} /> : 'Test'}
+                            </GlassButton>
+                        </Box>
+
+                        <FormControl fullWidth margin="normal" variant="outlined">
+                            <InputLabel>Default Model</InputLabel>
+                            <Select
+                                value={defaultModel}
+                                onChange={(e) => setDefaultModel(e.target.value as string)}
+                                label="Default Model"
+                            >
+                                <MenuItem value="" disabled>
+                                    {availableModels.length === 0 ? 'No models detected - type URL above' : 'Select a model'}
+                                </MenuItem>
+                                {availableModels.map(m => (
+                                    <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                ))}
+                                {/* Fallback if current model is not in list */}
+                                {defaultModel && !availableModels.find(m => m.id === defaultModel) && (
+                                    <MenuItem value={defaultModel}>{defaultModel} (custom)</MenuItem>
+                                )}
+                            </Select>
+                            {availableModels.length > 0 && (
+                                <Typography variant="caption" color="success.main" sx={{ mt: 0.5, ml: 1 }}>
+                                    ✓ {availableModels.length} models detected automatically
+                                </Typography>
+                            )}
+                        </FormControl>
+
+                        <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>System Instructions</Typography>
                         <TextField
                             fullWidth
-                            label="Ollama Base URL"
-                            value={ollamaBaseUrl}
-                            onChange={(e) => setOllamaBaseUrl(e.target.value)}
+                            multiline
+                            rows={6}
+                            label="Custom System Prompt"
+                            value={systemInstructions}
+                            onChange={(e) => setSystemInstructions(e.target.value)}
                             margin="normal"
-                            helperText="e.g., http://localhost:11434"
+                            helperText="Define Jarvis's personality and behavior"
                         />
+
                         <GlassButton
-                            variant="outlined"
-                            onClick={() => testConnection(false)}
-                            sx={{ mt: 2 }}
-                            disabled={loadingModels}
+                            variant="contained"
+                            size="large"
+                            onClick={handleSave}
+                            sx={{ mt: 3 }}
+                            fullWidth
                         >
-                            {loadingModels ? <CircularProgress size={20} /> : 'Test'}
+                            Save Settings
                         </GlassButton>
-                    </Box>
-
-                    <FormControl fullWidth margin="normal" variant="outlined">
-                        <InputLabel>Default Model</InputLabel>
-                        <Select
-                            value={defaultModel}
-                            onChange={(e) => setDefaultModel(e.target.value as string)}
-                            label="Default Model"
-                        >
-                            <MenuItem value="" disabled>
-                                {availableModels.length === 0 ? 'No models detected - type URL above' : 'Select a model'}
-                            </MenuItem>
-                            {availableModels.map(m => (
-                                <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
-                            ))}
-                            {/* Fallback if current model is not in list */}
-                            {defaultModel && !availableModels.find(m => m.id === defaultModel) && (
-                                <MenuItem value={defaultModel}>{defaultModel} (custom)</MenuItem>
-                            )}
-                        </Select>
-                        {availableModels.length > 0 && (
-                            <Typography variant="caption" color="success.main" sx={{ mt: 0.5, ml: 1 }}>
-                                ✓ {availableModels.length} models detected automatically
-                            </Typography>
-                        )}
-                    </FormControl>
-
-                    <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>System Instructions</Typography>
-                    <TextField
-                        fullWidth
-                        multiline
-                        rows={6}
-                        label="Custom System Prompt"
-                        value={systemInstructions}
-                        onChange={(e) => setSystemInstructions(e.target.value)}
-                        margin="normal"
-                        helperText="Define Jarvis's personality and behavior"
-                    />
-
-                    <GlassButton
-                        variant="contained"
-                        size="large"
-                        onClick={handleSave}
-                        sx={{ mt: 3 }}
-                        fullWidth
-                    >
-                        Save Settings
-                    </GlassButton>
-                </GlassCard>
+                    </GlassCard>
+                </ErrorBoundary>
             </Container>
         </Box>
     );

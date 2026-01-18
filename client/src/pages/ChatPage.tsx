@@ -4,7 +4,9 @@ import {
     Typography,
     IconButton,
     useMediaQuery,
-    useTheme
+    useTheme,
+    Button,
+    Divider
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -31,6 +33,10 @@ import { ChatContextMenu } from '../molecules';
 
 // Components
 import SettingsDialog from '../components/SettingsDialog';
+import { ChatConfigMenu } from '../components/ChatConfigMenu';
+import { ExportMenu } from '../components/ExportMenu';
+import { ErrorBoundary } from 'react-error-boundary';
+import OopsPage from './OopsPage';
 
 const ChatPage: React.FC = () => {
     const { resolvedMode } = useThemeMode();
@@ -340,81 +346,109 @@ const ChatPage: React.FC = () => {
                         </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <ChatConfigMenu resolvedMode={resolvedMode} />
+                        <ExportMenu resolvedMode={resolvedMode} />
+
+                        <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24, alignSelf: 'center' }} />
+
+                        <Button
+                            variant="text"
+                            size="small"
                             onClick={() => handleShare(true)}
+                            startIcon={<PersonAddIcon sx={{ fontSize: 18 }} />}
                             sx={{
-                                display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5,
-                                borderRadius: 1, cursor: 'pointer',
-                                '&:hover': { bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+                                textTransform: 'none',
+                                color: 'text.primary',
+                                minWidth: 'auto',
+                                px: 1.5
                             }}
                         >
-                            <PersonAddIcon sx={{ fontSize: 16 }} />
-                            <Typography sx={{ fontSize: 13 }}>Add People</Typography>
-                        </Box>
-                        <Box
+                            Add People
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            size="small"
                             onClick={() => handleShare(false)}
+                            startIcon={<span style={{ fontSize: '1.2em', lineHeight: 1 }}>↑</span>}
                             sx={{
-                                display: 'flex', alignItems: 'center', gap: 0.5, px: 1.5, py: 0.5,
-                                borderRadius: 1, cursor: 'pointer', fontSize: 13,
-                                '&:hover': { bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+                                textTransform: 'none',
+                                borderRadius: 5,
+                                px: 2,
+                                ml: 0.5,
+                                borderColor: 'divider',
+                                color: 'text.primary',
+                                '&:hover': {
+                                    borderColor: 'primary.main',
+                                    bgcolor: 'action.hover'
+                                }
                             }}
                         >
-                            <Typography sx={{ fontSize: 13 }}>↑ Share</Typography>
-                        </Box>
+                            Share
+                        </Button>
                     </Box>
                 </Box>
 
-                {/* Messages Area */}
-                <Box ref={scrollRef} onScroll={handleScroll} sx={{ flex: 1, overflowY: 'auto' }}>
-                    <MessageList
-                        messages={chat.messages}
+                <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
+                    <OopsPage
+                        title="Chat Interface Error"
+                        description={error.message || "Something went wrong in the chat window."}
+                        onReset={resetErrorBoundary}
+                        isError={true}
+                        sx={{ height: '100%', justifyContent: 'center' }}
+                    />
+                )}>
+                    {/* Messages Area */}
+                    <Box ref={scrollRef} onScroll={handleScroll} sx={{ flex: 1, overflowY: 'auto' }}>
+                        <MessageList
+                            messages={chat.messages}
+                            isLoading={chat.isLoading}
+                            resolvedMode={resolvedMode}
+                            isMobile={isMobile}
+                            editingMessageIndex={editingMessageIndex}
+                            editedContent={editedContent}
+                            onEditChange={setEditedContent}
+                            onCancelEdit={handleCancelEdit}
+                            onSaveEdit={handleSaveEdit}
+                            onCopy={handleCopy}
+                            onEdit={handleEditMessage}
+                            onRegenerate={handleRegenerate}
+                        />
+                    </Box>
+
+                    {/* Input Area */}
+                    <ChatInputArea
+                        input={input}
+                        onInputChange={setInput}
+                        onSend={handleSend}
+                        onStop={chat.handleStop}
+                        onPaste={chat.handlePaste}
                         isLoading={chat.isLoading}
+                        isUploading={chat.isUploading}
+                        webSearchEnabled={webSearchEnabled}
+                        onToggleWebSearch={() => setWebSearchEnabled(!webSearchEnabled)}
+                        isSearching={chat.isSearching}
+                        attachedFile={chat.attachedFile}
+                        attachedFileUrl={chat.attachedFileUrl}
+                        onFileSelect={chat.handleFileSelect}
+                        onRemoveAttachment={chat.clearAttachment}
+                        currentModel={currentModel}
+                        availableModels={availableModels}
+                        aiProvider={aiProvider}
+                        isLoadingModels={isLoadingModels}
+                        onModelSwitch={handleModelSwitch}
+                        modelMenuAnchor={modelMenuAnchor}
+                        onModelMenuOpen={(e) => setModelMenuAnchor(e.currentTarget)}
+                        onModelMenuClose={() => setModelMenuAnchor(null)}
                         resolvedMode={resolvedMode}
                         isMobile={isMobile}
-                        editingMessageIndex={editingMessageIndex}
-                        editedContent={editedContent}
-                        onEditChange={setEditedContent}
-                        onCancelEdit={handleCancelEdit}
-                        onSaveEdit={handleSaveEdit}
-                        onCopy={handleCopy}
-                        onEdit={handleEditMessage}
-                        onRegenerate={handleRegenerate}
                     />
-                </Box>
 
-                {/* Input Area */}
-                <ChatInputArea
-                    input={input}
-                    onInputChange={setInput}
-                    onSend={handleSend}
-                    onStop={chat.handleStop}
-                    onPaste={chat.handlePaste}
-                    isLoading={chat.isLoading}
-                    isUploading={chat.isUploading}
-                    webSearchEnabled={webSearchEnabled}
-                    onToggleWebSearch={() => setWebSearchEnabled(!webSearchEnabled)}
-                    isSearching={chat.isSearching}
-                    attachedFile={chat.attachedFile}
-                    attachedFileUrl={chat.attachedFileUrl}
-                    onFileSelect={chat.handleFileSelect}
-                    onRemoveAttachment={chat.clearAttachment}
-                    currentModel={currentModel}
-                    availableModels={availableModels}
-                    aiProvider={aiProvider}
-                    isLoadingModels={isLoadingModels}
-                    onModelSwitch={handleModelSwitch}
-                    modelMenuAnchor={modelMenuAnchor}
-                    onModelMenuOpen={(e) => setModelMenuAnchor(e.currentTarget)}
-                    onModelMenuClose={() => setModelMenuAnchor(null)}
-                    resolvedMode={resolvedMode}
-                    isMobile={isMobile}
-                />
-
-                {/* Disclaimer */}
-                <Typography sx={{ fontSize: 11, textAlign: 'center', py: 1, opacity: 0.35 }}>
-                    Jarvis AI can make mistakes. Markdown is supported. Consider checking important information.
-                </Typography>
+                    {/* Disclaimer */}
+                    <Typography sx={{ fontSize: 11, textAlign: 'center', py: 1, opacity: 0.35 }}>
+                        Jarvis AI can make mistakes. Markdown is supported. Consider checking important information.
+                    </Typography>
+                </ErrorBoundary>
             </Box>
 
             {/* Dialogs and Menus */}
@@ -454,7 +488,7 @@ const ChatPage: React.FC = () => {
                 onClose={() => setSettingsOpen(false)}
                 initialTab={settingsTab}
             />
-        </Box>
+        </Box >
     );
 };
 

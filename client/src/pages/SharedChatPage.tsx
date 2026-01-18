@@ -8,6 +8,8 @@ import { useThemeMode } from '../context/ThemeContext';
 import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '@mui/material';
+import { ErrorBoundary } from 'react-error-boundary';
+import OopsPage from './OopsPage';
 
 const SharedChatPage: React.FC = () => {
     const { token } = useParams<{ token: string }>();
@@ -87,87 +89,97 @@ const SharedChatPage: React.FC = () => {
             </Box>
 
             {/* Content */}
-            <Container maxWidth="md" sx={{ flex: 1, overflowY: 'auto', py: 4 }} ref={scrollRef}>
-                {loading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                        <CircularProgress />
-                    </Box>
-                ) : error ? (
-                    <Box sx={{ textAlign: 'center', mt: 4 }}>
-                        <Typography color="error">{error}</Typography>
-                    </Box>
-                ) : (
-                    <Box>
-                        {/* Disclaimer */}
-                        <Box sx={{
-                            p: 2,
-                            mb: 4,
-                            borderRadius: 2,
-                            bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
-                            border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
-                            textAlign: 'center'
-                        }}>
-                            <Typography sx={{ fontSize: 13, opacity: 0.7 }}>
-                                This is a shared chat session from Jarvis AI.
-                            </Typography>
+            <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
+                <OopsPage
+                    title="Shared Chat Error"
+                    description={error.message || "Something went wrong loading the shared chat."}
+                    onReset={resetErrorBoundary}
+                    isError={true}
+                    sx={{ height: '100%' }}
+                />
+            )}>
+                <Container maxWidth="md" sx={{ flex: 1, overflowY: 'auto', py: 4 }} ref={scrollRef}>
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                            <CircularProgress />
                         </Box>
+                    ) : error ? (
+                        <Box sx={{ textAlign: 'center', mt: 4 }}>
+                            <Typography color="error">{error}</Typography>
+                        </Box>
+                    ) : (
+                        <Box>
+                            {/* Disclaimer */}
+                            <Box sx={{
+                                p: 2,
+                                mb: 4,
+                                borderRadius: 2,
+                                bgcolor: resolvedMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+                                border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                                textAlign: 'center'
+                            }}>
+                                <Typography sx={{ fontSize: 13, opacity: 0.7 }}>
+                                    This is a shared chat session from Jarvis AI.
+                                </Typography>
+                            </Box>
 
-                        {chat.messages.map((msg: any, i: number) => (
-                            <Box
-                                key={i}
-                                sx={{
-                                    display: 'flex',
-                                    gap: 2,
-                                    mb: 3,
-                                    alignItems: 'flex-start',
-                                    flexDirection: msg.role === 'user' ? 'row-reverse' : 'row'
-                                }}
-                            >
-                                <Avatar
+                            {chat.messages.map((msg: any, i: number) => (
+                                <Box
+                                    key={i}
                                     sx={{
-                                        width: 28,
-                                        height: 28,
-                                        bgcolor: msg.role === 'user'
-                                            ? (resolvedMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)')
-                                            : (resolvedMode === 'dark' ? '#fff' : '#212121'),
-                                        color: msg.role === 'user' ? 'inherit' : (resolvedMode === 'dark' ? '#212121' : '#fff'),
-                                        fontSize: 12,
+                                        display: 'flex',
+                                        gap: 2,
+                                        mb: 3,
+                                        alignItems: 'flex-start',
+                                        flexDirection: msg.role === 'user' ? 'row-reverse' : 'row'
                                     }}
                                 >
-                                    {msg.role === 'user' ? <PersonIcon sx={{ fontSize: 16 }} /> : <SmartToyIcon sx={{ fontSize: 16 }} />}
-                                </Avatar>
-                                <Box sx={{ flex: 1, pt: 0.25, display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                                    <Typography sx={{ fontWeight: 600, fontSize: 13, mb: 0.5, opacity: 0.6 }}>
-                                        {msg.role === 'user' ? 'User' : 'Jarvis'}
-                                    </Typography>
-                                    <MessageRenderer content={msg.content} role={msg.role} />
+                                    <Avatar
+                                        sx={{
+                                            width: 28,
+                                            height: 28,
+                                            bgcolor: msg.role === 'user'
+                                                ? (resolvedMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)')
+                                                : (resolvedMode === 'dark' ? '#fff' : '#212121'),
+                                            color: msg.role === 'user' ? 'inherit' : (resolvedMode === 'dark' ? '#212121' : '#fff'),
+                                            fontSize: 12,
+                                        }}
+                                    >
+                                        {msg.role === 'user' ? <PersonIcon sx={{ fontSize: 16 }} /> : <SmartToyIcon sx={{ fontSize: 16 }} />}
+                                    </Avatar>
+                                    <Box sx={{ flex: 1, pt: 0.25, display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                                        <Typography sx={{ fontWeight: 600, fontSize: 13, mb: 0.5, opacity: 0.6 }}>
+                                            {msg.role === 'user' ? 'User' : 'Jarvis'}
+                                        </Typography>
+                                        <MessageRenderer content={msg.content} role={msg.role} />
+                                    </Box>
                                 </Box>
-                            </Box>
-                        ))}
+                            ))}
 
-                        {/* Action Button - Bottom */}
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}>
-                            <Button
-                                variant="contained"
-                                onClick={handleAction}
-                                startIcon={isInvite ? <PersonIcon /> : <SmartToyIcon />}
-                                sx={{
-                                    textTransform: 'none',
-                                    borderRadius: 3,
-                                    px: 4,
-                                    py: 1.5,
-                                    fontWeight: 600,
-                                    bgcolor: mode === 'dark' ? '#fff' : '#212121',
-                                    color: mode === 'dark' ? '#212121' : '#fff',
-                                    '&:hover': { bgcolor: mode === 'dark' ? '#e0e0e0' : '#333' }
-                                }}
-                            >
-                                {isInvite ? 'Join Chat' : 'Import Copy'}
-                            </Button>
+                            {/* Action Button - Bottom */}
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}>
+                                <Button
+                                    variant="contained"
+                                    onClick={handleAction}
+                                    startIcon={isInvite ? <PersonIcon /> : <SmartToyIcon />}
+                                    sx={{
+                                        textTransform: 'none',
+                                        borderRadius: 3,
+                                        px: 4,
+                                        py: 1.5,
+                                        fontWeight: 600,
+                                        bgcolor: mode === 'dark' ? '#fff' : '#212121',
+                                        color: mode === 'dark' ? '#212121' : '#fff',
+                                        '&:hover': { bgcolor: mode === 'dark' ? '#e0e0e0' : '#333' }
+                                    }}
+                                >
+                                    {isInvite ? 'Join Chat' : 'Import Copy'}
+                                </Button>
+                            </Box>
                         </Box>
-                    </Box>
-                )}
-            </Container>
+                    )}
+                </Container>
+            </ErrorBoundary>
         </Box>
     );
 };

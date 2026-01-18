@@ -5,6 +5,8 @@ import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { GlassCard, GlassButton } from '../components';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import { ErrorBoundary } from 'react-error-boundary';
+import OopsPage from './OopsPage';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -39,83 +41,93 @@ const Login: React.FC = () => {
                     zIndex: 1
                 }}
             >
-                <GlassCard
-                    sx={{
-                        p: 4,
-                        width: '100%',
-                        textAlign: 'center',
-                        // animation: 'float 6s ease-in-out infinite'
-                    }}
-                    className="animate-pulse-glow"
-                >
-                    <Avatar
+                <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
+                    <OopsPage
+                        title="Authentication Error"
+                        description={error.message || "Something went wrong during login."}
+                        onReset={resetErrorBoundary}
+                        isError={true}
+                        sx={{ height: 'auto', minHeight: 400 }}
+                    />
+                )}>
+                    <GlassCard
                         sx={{
-                            width: 64,
-                            height: 64,
-                            mx: 'auto',
-                            mb: 2,
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            p: 4,
+                            width: '100%',
+                            textAlign: 'center',
+                            // animation: 'float 6s ease-in-out infinite'
                         }}
+                        className="animate-pulse-glow"
                     >
-                        <LockOutlinedIcon sx={{ fontSize: 32 }} />
-                    </Avatar>
-
-                    <Typography
-                        variant="h4"
-                        gutterBottom
-                        sx={{
-                            color: '#ffffff',
-                            fontWeight: 300,
-                            letterSpacing: '0.05em',
-                            mb: 1
-                        }}
-                    >
-                        Jarvis AI
-                    </Typography>
-
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 4, opacity: 0.8 }}>
-                        {isRegister ? 'Create an account to get started' : 'Sign in to your account'}
-                    </Typography>
-
-                    <form onSubmit={handleSubmit}>
-                        <TextField
-                            fullWidth
-                            label="Email Address"
-                            margin="normal"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            sx={{ mb: 2 }}
-                        />
-                        <TextField
-                            fullWidth
-                            label="Password"
-                            type="password"
-                            margin="normal"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            sx={{ mb: 3 }}
-                        />
-                        <GlassButton
-                            type="submit"
-                            fullWidth
-                            variant="contained"
-                            size="large"
-                            sx={{ mb: 2 }}
+                        <Avatar
+                            sx={{
+                                width: 64,
+                                height: 64,
+                                mx: 'auto',
+                                mb: 2,
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                            }}
                         >
-                            {isRegister ? 'Register' : 'Sign In'}
-                        </GlassButton>
-                        <GlassButton
-                            fullWidth
-                            variant="text"
-                            onClick={() => setIsRegister(!isRegister)}
+                            <LockOutlinedIcon sx={{ fontSize: 32 }} />
+                        </Avatar>
+
+                        <Typography
+                            variant="h4"
+                            gutterBottom
+                            sx={{
+                                color: '#ffffff',
+                                fontWeight: 300,
+                                letterSpacing: '0.05em',
+                                mb: 1
+                            }}
                         >
-                            {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register"}
-                        </GlassButton>
-                    </form>
-                </GlassCard>
+                            Jarvis AI
+                        </Typography>
+
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 4, opacity: 0.8 }}>
+                            {isRegister ? 'Create an account to get started' : 'Sign in to your account'}
+                        </Typography>
+
+                        <form onSubmit={handleSubmit}>
+                            <TextField
+                                fullWidth
+                                label="Email Address"
+                                margin="normal"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                sx={{ mb: 2 }}
+                            />
+                            <TextField
+                                fullWidth
+                                label="Password"
+                                type="password"
+                                margin="normal"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                sx={{ mb: 3 }}
+                            />
+                            <GlassButton
+                                type="submit"
+                                fullWidth
+                                variant="contained"
+                                size="large"
+                                sx={{ mb: 2 }}
+                            >
+                                {isRegister ? 'Register' : 'Sign In'}
+                            </GlassButton>
+                            <GlassButton
+                                fullWidth
+                                variant="text"
+                                onClick={() => setIsRegister(!isRegister)}
+                            >
+                                {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Register"}
+                            </GlassButton>
+                        </form>
+                    </GlassCard>
+                </ErrorBoundary>
             </Box>
         </Container>
     );

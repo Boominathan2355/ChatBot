@@ -1,5 +1,5 @@
-import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
 
@@ -8,13 +8,15 @@ interface OopsPageProps {
     description?: string;
     onReset?: () => void;
     isError?: boolean;
+    sx?: SxProps<Theme>;
 }
 
 const OopsPage: React.FC<OopsPageProps> = ({
     title = "404",
     description = "Oops! Page not found.",
     onReset,
-    isError = false
+    isError = false,
+    sx
 }) => {
     const navigate = useNavigate();
 
@@ -22,6 +24,7 @@ const OopsPage: React.FC<OopsPageProps> = ({
         <Box
             sx={{
                 height: '100vh',
+                ...sx,
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',

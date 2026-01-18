@@ -99,39 +99,49 @@ Return ONLY the optimized search keywords as a short phrase (max 10 words), no e
      * Performs the search using Brave Search API for real-time results.
      */
     async performSearch(focusedQuery) {
+        let data = null;
+        const scraperService = require('./scraperService');
+
         try {
             console.log('🔍 Brave Search:', focusedQuery);
 
             const apiKey = process.env.BRAVE_SEARCH_API_KEY;
-            if (!apiKey) {
-                console.warn('⚠️ BRAVE_SEARCH_API_KEY not set. Add it to .env file.');
-                console.warn('Get a free API key at: https://brave.com/search/api/');
-                return null;
+
+            if (apiKey) {
+                const response = await axios.get('https://api.search.brave.com/res/v1/web/search', {
+                    params: {
+                        q: focusedQuery,
+                        count: 5,  // Number of results
+                        safesearch: 'moderate',
+                        freshness: 'pw'  // Past week for recent results
+                    },
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Encoding': 'gzip',
+                        'X-Subscription-Token': apiKey
+                    },
+                    timeout: 10000
+                });
+                data = response.data;
+            } else {
+                console.warn('⚠️ BRAVE_SEARCH_API_KEY not set. Switching to advanced scraper fallback...');
+                data = await scraperService.performWebSearch(focusedQuery);
             }
-
-            const response = await axios.get('https://api.search.brave.com/res/v1/web/search', {
-                params: {
-                    q: focusedQuery,
-                    count: 5,  // Number of results
-                    safesearch: 'moderate',
-                    freshness: 'pw'  // Past week for recent results
-                },
-                headers: {
-                    'Accept': 'application/json',
-                    'Accept-Encoding': 'gzip',
-                    'X-Subscription-Token': apiKey
-                },
-                timeout: 10000
-            });
-
-            return response.data;
         } catch (error) {
             console.error('❌ Brave Search failed:', error.message);
-            if (error.response?.status === 401) {
-                console.error('❌ Invalid Brave Search API key. Check your .env file.');
+            // Fallback Method: Scraper (if API fails)
+            if (error.response?.status === 401 || !data) {
+                console.error('❌ Invalid Brave Search API key. Attempting scraper fallback...');
+                data = await scraperService.performWebSearch(focusedQuery);
             }
-            return null;
         }
+
+        // Always save results if found ("store data about latest news always")
+        if (data) {
+            await scraperService.saveSearchResults(focusedQuery, data);
+        }
+
+        return data;
     }
 
     /**
