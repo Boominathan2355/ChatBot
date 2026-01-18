@@ -30,6 +30,8 @@ app.use('/api/chats', require('./routes/chatRoutes'));
 app.use('/api/docs', require('./routes/docRoutes'));
 app.use('/api/groups', require('./routes/groupRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
+app.use('/api/memories', require('./routes/memoryRoutes'));
+app.use('/api/data', require('./routes/dataRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -52,11 +52,20 @@ const userSettingsSchema = new mongoose.Schema({
 
     systemInstructions: { type: String, default: 'You are Jarvis, a helpful AI assistant.' },
     rag: {
-        enabled: { type: Boolean, default: true },
         provider: { type: String, default: 'ollama' },
         model: { type: String, default: '' },
-        baseUrl: { type: String, default: '' } // For custom RAG provider URLs
+        baseUrl: { type: String, default: '' }, // For custom RAG provider URLs
+        enabled: { type: Boolean, default: true }
     },
+    mcpServers: [{
+        name: { type: String, required: true },
+        type: { type: String, enum: ['stdio', 'sse'], default: 'stdio' },
+        command: String, // For stdio
+        args: [String],  // For stdio
+        url: String,     // For sse
+        env: { type: Map, of: String },
+        enabled: { type: Boolean, default: true }
+    }],
     historyWindowSize: { type: Number, default: 20 },
     theme: { type: String, default: 'dark' },
     timezone: { type: String, default: 'Asia/Kolkata' },

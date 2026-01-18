@@ -4,6 +4,7 @@ const UserSettings = require('../models/UserSettings');
 const axios = require('axios');
 const searchService = require('../services/searchService');
 const vectorService = require('../services/vectorService');
+const mcpService = require('../services/mcpService'); // New Service
 const DocumentChunk = require('../models/DocumentChunk');
 const aiService = require('../services/aiService');
 
@@ -110,47 +111,135 @@ exports.sendMessage = async (req, res) => {
         }
         const histSize = settings.historyWindowSize || 20;
 
-        // Perform RAG web search if enabled
-        let searchContext = '';
-        if (webSearch) {
+        // --- AGENTIC ROUTER START ---
+        // 1. Analyze Intent & Decide Tools
+        let useWeb = webSearch; // User override
+        let useDocs = false;
+        let useMemory = true; // Default to using memory
+        let saveMemory = true;
+
+        // If specific RAG flags aren't forced, ask the Agent
+        if (!webSearch && !useRag) {
             try {
-                const isSearchNeeded = await searchService.detectIntent(content);
-                if (isSearchNeeded) {
-                    const focusedQuery = await searchService.generateSearchQuery(content);
-                    const searchData = await searchService.performSearch(focusedQuery);
-                    searchContext = searchService.processResults(searchData);
-                    console.log(`🌐 Web Search: Found context (${searchContext.length} chars)`);
-                }
-            } catch (searchError) {
-                console.error('❌ RAG Search failed:', searchError.message);
+                const routerSystem = `You are a decision engine. Analyze the user query and output a JSON object deciding which tools to use.
+Tools:
+- "web": Use for current events, news, weather, or specific facts not known.
+- "docs": Use if user asks about "uploaded" files, "documents", or specific context provided previously.
+- "memory": Use if user asks about themselves, past conversations, or personal details.
+- "save": Set true if the user shares new personal information or facts.
+
+Output Schema: { "web": boolean, "docs": boolean, "memory": boolean, "save": boolean }`;
+
+                const decision = await aiService.generate(settings, [
+                    { role: 'system', content: routerSystem },
+                    { role: 'user', content }
+                ]);
+
+                // Try parse JSON
+                const cleanDecision = decision.replace(/```json/g, '').replace(/```/g, '').trim();
+                const plan = JSON.parse(cleanDecision);
+
+                useWeb = plan.web === true;
+                useDocs = plan.docs === true;
+                useMemory = plan.memory !== false; // Default true if uncertain
+                saveMemory = plan.save !== false;
+
+                console.log(`🧠 Agent Plan: Web=${useWeb}, Docs=${useDocs}, Memory=${useMemory}, Save=${saveMemory}`);
+            } catch (e) {
+                console.warn('⚠️ Agent Router failed, defaulting to basic config');
+            }
+        } else {
+            if (useRag) useDocs = true;
+        }
+
+        // 2. Parallel Execution of Tools
+        const toolPromises = [];
+        const memoryService = require('../services/memoryService'); // Lazy load
+
+        // Web Search
+        if (useWeb) {
+            toolPromises.push(searchService.generateSearchQuery(content)
+                .then(q => searchService.performSearch(q))
+                .then(data => ({ type: 'web', data: searchService.processResults(data) }))
+                .catch(e => ({ type: 'web', data: '' }))
+            );
+        }
+
+        // Document RAG
+        if (useDocs) {
+            const isRagEnabled = settings.rag && settings.rag.enabled !== false;
+            if (isRagEnabled) {
+                toolPromises.push(vectorService.findRelevantChunks(content, req.user.id)
+                    .then(chunks => ({
+                        type: 'docs',
+                        data: chunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n')
+                    }))
+                    .catch(e => ({ type: 'docs', data: '' }))
+                );
             }
         }
+
+
+        // 1.5 MCP Tool Execution (Agentic Step)
+        let mcpContext = '';
+        try {
+            const tools = await mcpService.getTools(req.user.id);
+            if (tools.length > 0) {
+                // Agentic Router for Tools
+                const toolPrompt = `
+User Query: "${content}"
+Available Tools:
+${tools.map(t => `- ${t.functionName}: ${t.description}`).join('\n')}
+
+Determine if the user's query requires using one of these tools.
+If yes, reply STRICTLY in this format: TOOL: <functionName> | <JSON_arguments>
+If no, reply: NO
+`;
+                // Use a fast model for routing if possible, otherwise use default
+                const routerResponse = await aiService.generate(settings, [{ role: 'user', content: toolPrompt }]);
+
+                if (routerResponse.includes('TOOL:')) {
+                    const match = routerResponse.match(/TOOL:\s*(\S+)\s*\|\s*(.+)/);
+                    if (match) {
+                        const [_, fnName, argsStr] = match;
+                        const [serverName, toolName] = fnName.split('__');
+
+                        console.log(`🛠️ Executing MCP Tool: ${fnName} with ${argsStr}`);
+                        const toolResult = await mcpService.callTool(req.user.id, serverName, toolName, JSON.parse(argsStr));
+
+                        mcpContext = `[MCP TOOL RESULT: ${fnName}]\n${JSON.stringify(toolResult.content, null, 2)}`;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('MCP Execution Error:', e);
+            // Fail silently, don't block response
+        }
+
+
+        // Memory Retrieval
+        if (useMemory) {
+            toolPromises.push(memoryService.retrieveMemories(req.user.id, content)
+                .then(mems => ({
+                    type: 'memory',
+                    data: mems.map(m => `[Memory] (${m.date ? new Date(m.date).toLocaleDateString() : 'Past'}): ${m.content}`).join('\n')
+                }))
+                .catch(e => ({ type: 'memory', data: '' }))
+            );
+        }
+
+        const results = await Promise.all(toolPromises);
+
+        const searchContext = results.find(r => r.type === 'web')?.data || '';
+        const docContext = results.find(r => r.type === 'docs')?.data || '';
+        const memoryContext = results.find(r => r.type === 'memory')?.data || '';
 
         // Add user message to DB
         currentChat.messages.push({ role: 'user', content, image });
         await currentChat.save();
 
-        // Perform Document RAG ONLY if explicitly requested via useRag flag
-        let docContext = '';
-        const isRagEnabled = settings.rag && settings.rag.enabled !== false;
-
-        if (isRagEnabled && useRag) {
-            try {
-                const relevantChunks = await vectorService.findRelevantChunks(content, req.user.id);
-                if (relevantChunks.length > 0) {
-                    docContext = relevantChunks.map((c, i) => `[Doc ${i + 1}] (Relevance: ${Math.round(c.score * 100)}%): ${c.content}`).join('\n\n');
-                    console.log(`📚 Document RAG: Found ${relevantChunks.length} relevant chunks`);
-                }
-            } catch (docError) {
-                console.error('❌ Document RAG failed:', docError.message);
-            }
-        } else if (!useRag) {
-            console.log(`ℹ️ Document RAG skipped - useRag flag not set`);
-        }
-
-        // Prepare context for AI provider
+        // Prepare History
         const recentMessages = currentChat.messages.slice(-histSize);
-
         const history = recentMessages.map(m => {
             const msgObj = {
                 role: m.role,
@@ -163,126 +252,91 @@ exports.sendMessage = async (req, res) => {
             return msgObj;
         });
 
-        // 🔥 OPTIMIZED: Send ONLY the most recent image to avoid 400 errors
-        // Keep full text history, but limit vision processing to the last image
+        // 🔥 OPTIMIZED: Send ONLY the most recent image
         let foundImage = false;
         for (let i = history.length - 1; i >= 0; i--) {
             if (history[i].images) {
-                if (foundImage) {
-                    // This is an older image, remove it but keep the text
-                    delete history[i].images;
-                } else {
-                    // This is the most recent image, keep it
-                    foundImage = true;
-                }
+                if (foundImage) delete history[i].images;
+                else foundImage = true;
             }
         }
 
         // Consolidate System Message
         let unifiedSystemMessage = settings.systemInstructions || 'You are Jarvis, a helpful AI assistant.';
 
-        // Add system timestamp and context (from environment, not internet)
+        // Add system timestamp
         const now = new Date();
-        const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const timeStr = now.toTimeString().split(' ')[0]; // HH:MM:SS
-        const timezoneOffset = -now.getTimezoneOffset() / 60; // Hours from UTC
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toTimeString().split(' ')[0];
+        const timezoneOffset = -now.getTimezoneOffset() / 60;
         const timezone = settings.timezone || `UTC${timezoneOffset >= 0 ? '+' : ''}${timezoneOffset}`;
-
         unifiedSystemMessage += `\n\n[SYSTEM CONTEXT]\nCurrent Date: ${dateStr}\nCurrent Time: ${timeStr}\nTimezone: ${timezone}`;
-        if (settings.country) {
-            unifiedSystemMessage += `\nUser Location: ${settings.country}`;
+
+        if (settings.country) unifiedSystemMessage += `\nUser Location: ${settings.country}`;
+
+        // Inject Tool Contexts
+        if (memoryContext) {
+            unifiedSystemMessage += `\n\n[LONG-TERM MEMORY]\n${memoryContext}\n\nINSTRUCTION: Use these memories to personalize your response.`;
         }
-        unifiedSystemMessage += `\n\nNote: This timestamp is from the system environment. Use it to understand "today", "now", "latest", "recent", etc.`;
         if (docContext) {
             unifiedSystemMessage += `\n\n[EXTRACTED DOCUMENT KNOWLEDGE]\n${docContext}\n\nINSTRUCTION: Ground your response in these sources. Cite as [Doc 1], etc.`;
         }
         if (searchContext) {
             unifiedSystemMessage += `\n\n[GROUNDED KNOWLEDGE BASE]\n${searchContext}\n\nINSTRUCTION: Ground your response in these search results. Cite as [1], [2], etc.`;
-
-            // Load recent scraped files for full content
-            try {
-                const scraperService = require('../services/scraperService');
-                const recentFiles = await scraperService.loadRecentFiles(60 * 60 * 1000); // Last 1 hour
-
-                if (recentFiles.length > 0) {
-                    const scrapedContent = recentFiles.slice(0, 3).map((file, index) =>
-                        `[Scraped ${index + 1}] ${file.title}\n${file.content.substring(0, 2000)}...\nSource: ${file.url}`
-                    ).join('\n\n');
-
-                    unifiedSystemMessage += `\n\n[FULL SCRAPED CONTENT]\n${scrapedContent}\n\nNote: This is the complete article text from scraped web pages. Use this for detailed information.`;
-                    console.log(`📖 Loaded ${recentFiles.length} scraped documents for context`);
-                }
-            } catch (err) {
-                console.warn('⚠️ Failed to load scraped files:', err.message);
-            }
         }
+
         history.unshift({ role: 'system', content: unifiedSystemMessage });
 
         // Auto-rename logic for first message
         let newTitle = null;
         if (currentChat.messages.length === 1 && currentChat.title === 'New Chat') {
             try {
-                const titlePrompt = `Summarize the following user message into a very short, concise title (max 5 words). Output ONLY the title, no quotes, no punctuation, no extra text.\n\nUser Message: ${content}`;
+                const titlePrompt = `Summarize: "${content}" into max 4 words title. No quotes.`;
                 const generatedTitle = await aiService.generate(settings, [{ role: 'user', content: titlePrompt }]);
                 newTitle = generatedTitle?.trim().replace(/(^["'])|(["']$)/g, '');
                 if (newTitle) {
                     currentChat.title = newTitle;
                     await currentChat.save();
-                    console.log(`🏷️  Auto-renamed chat to: ${newTitle}`);
                 }
-            } catch (titleError) {
-                console.error('❌ Title generation failed:', titleError.message);
-            }
+            } catch (ignore) { }
         }
 
-        console.log(`📊 AI Request: [${settings.aiProvider || 'ollama'}] ${history.length} messages`);
-        console.log(`📚 Context: docContext=${!!docContext}, searchContext=${!!searchContext}`);
+        console.log(`📊 AI Request: [${settings.aiProvider || 'ollama'}] ${history.length} msgs | M:${!!memoryContext} D:${!!docContext} W:${!!searchContext} MCP:${!!mcpContext}`);
 
-        // Note: RAG model is used for embeddings/retrieval in vectorService
-        // Main model is ALWAYS used for generation (with context in prompt)
         const { stream, parser } = await aiService.getStream(settings, history);
 
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        // Send new title if generated
-        if (newTitle) {
-            res.write(`data: ${JSON.stringify({ title: newTitle })}\n\n`);
-        }
+        if (newTitle) res.write(`data: ${JSON.stringify({ title: newTitle })}\n\n`);
 
         let assistantMessage = '';
-        let isThinking = false; // State to track if inside <think> block
+        let isThinking = false;
 
         stream.on('data', chunk => {
             const results = parser(chunk);
             for (const resObj of results) {
                 if (resObj.content) {
-                    let content = resObj.content;
-
-                    // Filter out <think> blocks
+                    let text = resObj.content;
+                    // Filter thinking
                     if (isThinking) {
-                        if (content.includes('</think>')) {
+                        if (text.includes('</think>')) {
                             isThinking = false;
-                            content = content.split('</think>')[1] || ''; // Keep content after tag
-                        } else {
-                            content = ''; // Suppress thinking content
-                        }
-                    } else if (content.includes('<think>')) {
+                            text = text.split('</think>')[1] || '';
+                        } else text = '';
+                    } else if (text.includes('<think>')) {
                         isThinking = true;
-                        if (content.includes('</think>')) {
-                            // Handle inline think block in same chunk
+                        if (text.includes('</think>')) {
                             isThinking = false;
-                            const parts = content.split('</think>');
-                            content = content.replace(/<think>.*?<\/think>/s, '') || parts[1] || '';
-                        } else {
-                            content = content.split('<think>')[0] || ''; // Keep content before tag
-                        }
+                            const parts = text.split('</think>');
+                            text = text.replace(/<think>.*?<\/think>/s, '') || parts[1] || '';
+                        } else text = text.split('<think>')[0] || '';
                     }
 
-                    if (content) {
-                        assistantMessage += content;
-                        res.write(`data: ${JSON.stringify({ content: content })}\n\n`);
+                    if (text) {
+                        assistantMessage += text;
+                        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
                     }
                 }
             }
@@ -294,6 +348,14 @@ exports.sendMessage = async (req, res) => {
                 latestChat.messages.push({ role: 'assistant', content: assistantMessage });
                 latestChat.lastMessageAt = Date.now();
                 await latestChat.save();
+
+                // --- AGENTIC LEARNING ---
+                // Fire and forget memory extraction
+                if (saveMemory) {
+                    process.nextTick(() => {
+                        memoryService.extractAndSaveMemories(req.user.id, content, assistantMessage);
+                    });
+                }
             }
             res.write('data: [DONE]\n\n');
             res.end();
@@ -302,21 +364,10 @@ exports.sendMessage = async (req, res) => {
         stream.on('error', err => {
             console.error('Stream error:', err);
             if (!res.headersSent) res.end();
-            else {
-                res.write(`data: ${JSON.stringify({ error: 'Stream failed' })}\n\n`);
-                res.end();
-            }
         });
 
     } catch (error) {
         console.error('Send message error:', error.message);
-        if (error.response) {
-            console.error(`📡 Ollama Error [${error.response.status}]: ${error.response.statusText || 'Bad Request'}`);
-            // Log error details safely without circular refs
-            if (error.response.data?.error) {
-                console.error('Error details:', error.response.data.error);
-            }
-        }
         if (!res.headersSent) {
             res.status(error.response?.status || 500).json({ message: error.response?.data?.error || error.message });
         } else {

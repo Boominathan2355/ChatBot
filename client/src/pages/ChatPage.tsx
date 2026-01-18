@@ -1042,7 +1042,6 @@ const ChatPage: React.FC = () => {
                         }}
                         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
                         transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                        disableEnforceFocus
                     >
                         <MenuItem onClick={handleSettingsOpen}>
                             <ListItemIcon><SmartToyIcon fontSize="small" /></ListItemIcon>
@@ -1688,7 +1687,6 @@ const ChatPage: React.FC = () => {
                 }}
                 transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
                 anchorOrigin={{ horizontal: 'left', vertical: 'top' }}
-                disableEnforceFocus
             >
                 <Box sx={{ px: 2, py: 1.5 }}>
                     <Typography sx={{ fontSize: 11, fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1751,7 +1749,6 @@ const ChatPage: React.FC = () => {
                         border: resolvedMode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
                     }
                 }}
-                disableEnforceFocus
             >
                 <MenuItem onClick={handleRenameInit}>
                     <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>

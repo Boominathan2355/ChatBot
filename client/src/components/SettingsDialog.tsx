@@ -10,14 +10,21 @@ import { useThemeMode } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import api from '../services/api';
 import SettingsIcon from '@mui/icons-material/Settings';
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+//import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import PaletteIcon from '@mui/icons-material/Palette';
-import AppsIcon from '@mui/icons-material/Apps';
+//import AppsIcon from '@mui/icons-material/Apps';
 import StorageIcon from '@mui/icons-material/Storage';
-import SecurityIcon from '@mui/icons-material/Security';
-import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+//import SecurityIcon from '@mui/icons-material/Security';
+//import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import TuneIcon from '@mui/icons-material/Tune';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import ExtensionIcon from '@mui/icons-material/Extension';
+import AddIcon from '@mui/icons-material/Add';
 
 interface SettingsDialogProps {
     open: boolean;
@@ -92,6 +99,75 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
             loadSettings();
         }
     }, [open]);
+
+    const [memories, setMemories] = useState([]);
+
+    React.useEffect(() => {
+        if (activeTab === 'Memory' && open) {
+            api.get('/memories').then((res: any) => setMemories(res.data)).catch(console.error);
+        }
+    }, [activeTab, open]);
+
+    const handleDeleteMemory = async (id: string) => {
+        try {
+            await api.delete(`/memories/${id}`);
+            setMemories(prev => prev.filter((m: any) => m._id !== id));
+        } catch (e) { console.error(e); }
+    };
+
+    const handleExportData = async () => {
+        try {
+            const response = await api.get('/data/export');
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(response.data, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "jarvis_data_export.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Failed to export data');
+        }
+    };
+
+    const handleClearHistory = async () => {
+        if (window.confirm('Are you sure you want to delete ALL chat history? This cannot be undone.')) {
+            try {
+                await api.delete('/data/history');
+                alert('Chat history cleared successfully');
+                // Optionally reload or clear local state
+            } catch (error) {
+                console.error('Clear history failed:', error);
+                alert('Failed to clear history');
+            }
+        }
+    };
+
+    const [newMcpServer, setNewMcpServer] = useState({ name: '', type: 'stdio', command: '', args: '', url: '', enabled: true });
+
+    const handleAddMcpServer = async () => {
+        try {
+            const serverConfig = {
+                ...newMcpServer,
+                args: newMcpServer.args.split(' ').filter(a => a.trim().length > 0)
+            };
+
+            // We need to push this to the backend settings
+            // For now, we simulate by getting current settings, adding, and saving (a bit inefficient but consistent)
+            const { data } = await api.get('/settings');
+            const currentServers = data.mcpServers || [];
+            const updatedServers = [...currentServers, serverConfig];
+
+            await api.put('/settings', { ...data, mcpServers: updatedServers });
+            alert('MCP Server added!');
+            setNewMcpServer({ name: '', type: 'stdio', command: '', args: '', url: '', enabled: true });
+            loadSettings(); // Reload to refresh list
+        } catch (e: any) {
+            alert('Failed to add MCP server: ' + (e.response?.data?.message || e.message));
+        }
+    };
+
 
     // Auto-save timezone and country when they change (debounced)
     React.useEffect(() => {
@@ -298,12 +374,15 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
         { name: 'General', icon: <SettingsIcon fontSize="small" /> },
         { name: 'Modelconfig', icon: <TuneIcon fontSize="small" /> },
         { name: 'RAG', icon: <StorageIcon fontSize="small" /> },
-        { name: 'Notifications', icon: <NotificationsNoneIcon fontSize="small" /> },
+        { name: 'MCP', icon: <ExtensionIcon fontSize="small" /> },
+        { name: 'Memory', icon: <PsychologyIcon fontSize="small" /> },
+        // { name: 'Notifications', icon: <NotificationsNoneIcon fontSize="small" /> },
         { name: 'Personalization', icon: <PaletteIcon fontSize="small" /> },
-        { name: 'Apps', icon: <AppsIcon fontSize="small" /> },
+        // { name: 'Apps', icon: <AppsIcon fontSize="small" /> },
+
         { name: 'Data controls', icon: <StorageIcon fontSize="small" /> },
-        { name: 'Security', icon: <SecurityIcon fontSize="small" /> },
-        { name: 'Parental controls', icon: <SupervisorAccountIcon fontSize="small" /> },
+       // { name: 'Security', icon: <SecurityIcon fontSize="small" /> },
+       // { name: 'Parental controls', icon: <SupervisorAccountIcon fontSize="small" /> },
         { name: 'Account', icon: <AccountCircleIcon fontSize="small" /> },
     ];
 
@@ -340,7 +419,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     onChange={(e) => setMode(e.target.value as any)}
                                     disableUnderline
                                     sx={{ fontSize: 14 }}
-                                    MenuProps={{ disableEnforceFocus: true }}
                                 >
                                     <MenuItem value="system">System</MenuItem>
                                     <MenuItem value="dark">Dark</MenuItem>
@@ -401,7 +479,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     disableUnderline
                                     sx={{ fontSize: 14 }}
                                     displayEmpty
-                                    MenuProps={{ disableEnforceFocus: true }}
                                 >
                                     <MenuItem value="">Not set</MenuItem>
                                     <MenuItem value="United States">United States</MenuItem>
@@ -429,7 +506,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                 <Select
                                     value={aiProvider}
                                     onChange={(e) => setAiProvider(e.target.value)}
-                                    MenuProps={{ disableEnforceFocus: true }}
                                 >
                                     <MenuItem value="ollama">Ollama (Local)</MenuItem>
                                     <MenuItem value="openai">OpenAI</MenuItem>
@@ -470,7 +546,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                             value={ollamaConfig.model}
                                             onChange={(e) => setOllamaConfig({ ...ollamaConfig, model: e.target.value })}
                                             displayEmpty
-                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             <MenuItem value="" disabled>
                                                 {loadingModels ? 'Loading models...' : (availableModels.length === 0 ? 'No models found - click Refresh' : 'Select a model')}
@@ -511,7 +586,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={openaiConfig.model}
                                             onChange={(e) => setOpenaiConfig({ ...openaiConfig, model: e.target.value })}
-                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             {availableModels.length > 0 ? availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -556,7 +630,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={anthropicConfig.model}
                                             onChange={(e) => setAnthropicConfig({ ...anthropicConfig, model: e.target.value })}
-                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -594,7 +667,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={deepseekConfig.model}
                                             onChange={(e) => setDeepseekConfig({ ...deepseekConfig, model: e.target.value })}
-                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -632,7 +704,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={grokConfig.model}
                                             onChange={(e) => setGrokConfig({ ...grokConfig, model: e.target.value })}
-                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -683,7 +754,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                             <Select
                                                 value={awsConfig.modelId}
                                                 onChange={(e) => setAwsConfig({ ...awsConfig, modelId: e.target.value })}
-                                                MenuProps={{ disableEnforceFocus: true }}
                                             >
                                                 {availableModels.map(m => (
                                                     <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -785,6 +855,103 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                         </Box>
                     </Box>
                 );
+            case 'Memory':
+                return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <Typography variant="h6" sx={{ fontSize: 16 }}>Long-Term Memory</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Jarvis remembers facts about you to personalize conversations. You can view or delete them here.
+                        </Typography>
+
+                        <Box sx={{ maxHeight: 400, overflowY: 'auto', border: '1px solid rgba(128,128,128,0.1)', borderRadius: 2 }}>
+                            {memories.length === 0 ? (
+                                <Box sx={{ p: 4, textAlign: 'center', opacity: 0.5 }}>No memories stored yet.</Box>
+                            ) : (
+                                <List>
+                                    {memories.map((mem: any) => (
+                                        <React.Fragment key={mem._id}>
+                                            <ListItemButton>
+                                                <ListItemText
+                                                    primary={mem.content}
+                                                    secondary={new Date(mem.createdAt).toLocaleDateString()}
+                                                    primaryTypographyProps={{ fontSize: 14 }}
+                                                    secondaryTypographyProps={{ fontSize: 11 }}
+                                                />
+                                                <IconButton size="small" onClick={() => handleDeleteMemory(mem._id)}>
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </ListItemButton>
+                                            <Divider component="li" />
+                                        </React.Fragment>
+                                    ))}
+                                </List>
+                            )}
+                        </Box>
+                    </Box>
+                );
+
+
+
+            case 'MCP':
+                return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <Typography variant="h6" sx={{ fontSize: 16 }}>MCP Integration (Beta)</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Connect external tools using the Model Context Protocol.
+                        </Typography>
+
+                        {/* List existing servers */}
+                        {/* We need to extract this from the parent state/props since we don't have direct access to 'data' here */}
+                        {/* For this implementation, we'll rely on a locally fetched state or assume settings are loaded */}
+
+                        <Box sx={{ border: '1px solid rgba(128,128,128,0.1)', borderRadius: 2, p: 2 }}>
+                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 2 }}>Add New Server</Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <TextField
+                                    label="Name" size="small" fullWidth
+                                    value={newMcpServer.name}
+                                    onChange={e => setNewMcpServer({ ...newMcpServer, name: e.target.value })}
+                                />
+                                <FormControl size="small" fullWidth>
+                                    <Select
+                                        value={newMcpServer.type}
+                                        onChange={e => setNewMcpServer({ ...newMcpServer, type: e.target.value })}
+                                    >
+                                        <MenuItem value="stdio">Stdio (Command Line)</MenuItem>
+                                        <MenuItem value="sse">SSE (Server-Sent Events)</MenuItem>
+                                    </Select>
+                                </FormControl>
+
+                                {newMcpServer.type === 'stdio' ? (
+                                    <>
+                                        <TextField
+                                            label="Command" size="small" fullWidth placeholder="npx, python, etc."
+                                            value={newMcpServer.command}
+                                            onChange={e => setNewMcpServer({ ...newMcpServer, command: e.target.value })}
+                                        />
+                                        <TextField
+                                            label="Arguments" size="small" fullWidth placeholder="-y @server/package"
+                                            value={newMcpServer.args}
+                                            onChange={e => setNewMcpServer({ ...newMcpServer, args: e.target.value })}
+                                            helperText="Space separated arguments"
+                                        />
+                                    </>
+                                ) : (
+                                    <TextField
+                                        label="URL" size="small" fullWidth placeholder="http://localhost:3000/sse"
+                                        value={newMcpServer.url}
+                                        onChange={e => setNewMcpServer({ ...newMcpServer, url: e.target.value })}
+                                    />
+                                )}
+
+                                <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddMcpServer}>
+                                    Add Server
+                                </Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                );
+
             case 'Personalization':
                 return (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -965,6 +1132,39 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     Save Configuration
                                 </Button>
                             </Box>
+                        </Box>
+                    </Box>
+                );
+            case 'Data controls':
+                return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <Box>
+                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Export Data</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                Download a copy of your personal data, including chat history and memories.
+                            </Typography>
+                            <Button variant="outlined" startIcon={<CloudDownloadIcon />} onClick={handleExportData}>
+                                Export my data
+                            </Button>
+                        </Box>
+                        <Divider sx={{ opacity: 0.1 }} />
+
+                        <Box>
+                            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 1 }}>Privacy & History</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="body2">Allow data usage for model training</Typography>
+                                <Switch size="small" />
+                            </Box>
+
+                            <Button
+                                variant="outlined"
+                                color="error"
+                                startIcon={<DeleteSweepIcon />}
+                                onClick={handleClearHistory}
+                                sx={{ mt: 1 }}
+                            >
+                                Clear all chat history
+                            </Button>
                         </Box>
                     </Box>
                 );
