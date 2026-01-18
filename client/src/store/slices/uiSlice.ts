@@ -30,7 +30,7 @@ const uiSlice = createSlice({
     reducers: {
         setThemeMode: (state, action: PayloadAction<ReduxThemeMode>) => {
             state.themeMode = action.payload;
-            localStorage.setItem('theme-mode', action.payload);
+            state.themeMode = action.payload;
         },
         setSidebarOpen: (state, action: PayloadAction<boolean>) => {
             state.sidebarOpen = action.payload;
