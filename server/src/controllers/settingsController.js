@@ -74,7 +74,8 @@ exports.updateSettings = async (req, res) => {
             historyWindowSize,
             theme,
             timezone,
-            country
+            country,
+            mcpServers: req.body.mcpServers  // Add MCP Servers support
         };
 
         // Remove undefined values

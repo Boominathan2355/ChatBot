@@ -145,6 +145,23 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
     };
 
     const [newMcpServer, setNewMcpServer] = useState({ name: '', type: 'stdio', command: '', args: '', url: '', enabled: true });
+    const [mcpServers, setMcpServers] = useState<any[]>([]);
+
+    const handleRemoveMcpServer = async (name: string) => {
+        try {
+            // Optimistic update
+            const updatedServers = mcpServers.filter((s: any) => s.name !== name);
+            setMcpServers(updatedServers);
+            
+            const { data } = await api.get('/settings');
+            const newBackendServers = (data.mcpServers || []).filter((s: any) => s.name !== name);
+            await api.put('/settings', { ...data, mcpServers: newBackendServers });
+            // No need to reload entire settings as we updated efficiently
+        } catch (e: any) { 
+            console.error(e); 
+            loadSettings(); // Revert on error
+        }
+    };
 
     const handleAddMcpServer = async () => {
         try {
@@ -152,19 +169,21 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                 ...newMcpServer,
                 args: newMcpServer.args.split(' ').filter(a => a.trim().length > 0)
             };
+            
+            // Optimistic update
+            const optimisticServers = [...mcpServers, serverConfig];
+            setMcpServers(optimisticServers);
+            setNewMcpServer({ name: '', type: 'stdio', command: '', args: '', url: '', enabled: true });
 
-            // We need to push this to the backend settings
-            // For now, we simulate by getting current settings, adding, and saving (a bit inefficient but consistent)
             const { data } = await api.get('/settings');
             const currentServers = data.mcpServers || [];
             const updatedServers = [...currentServers, serverConfig];
-
+            
             await api.put('/settings', { ...data, mcpServers: updatedServers });
             alert('MCP Server added!');
-            setNewMcpServer({ name: '', type: 'stdio', command: '', args: '', url: '', enabled: true });
-            loadSettings(); // Reload to refresh list
         } catch (e: any) {
             alert('Failed to add MCP server: ' + (e.response?.data?.message || e.message));
+            loadSettings(); // Revert on error
         }
     };
 
@@ -263,6 +282,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                 setSystemInstructions(data.systemInstructions || '');
                 setTimezone(data.timezone || 'Asia/Kolkata');
                 setCountry(data.country || 'India');
+                setMcpServers(data.mcpServers || []);
             }
             setSettingsLoaded(true);
         } catch (e) {
@@ -381,8 +401,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
         // { name: 'Apps', icon: <AppsIcon fontSize="small" /> },
 
         { name: 'Data controls', icon: <StorageIcon fontSize="small" /> },
-       // { name: 'Security', icon: <SecurityIcon fontSize="small" /> },
-       // { name: 'Parental controls', icon: <SupervisorAccountIcon fontSize="small" /> },
+        // { name: 'Security', icon: <SecurityIcon fontSize="small" /> },
+        // { name: 'Parental controls', icon: <SupervisorAccountIcon fontSize="small" /> },
         { name: 'Account', icon: <AccountCircleIcon fontSize="small" /> },
     ];
 
@@ -900,9 +920,35 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                             Connect external tools using the Model Context Protocol.
                         </Typography>
 
-                        {/* List existing servers */}
-                        {/* We need to extract this from the parent state/props since we don't have direct access to 'data' here */}
-                        {/* For this implementation, we'll rely on a locally fetched state or assume settings are loaded */}
+                        <Box sx={{ border: '1px solid rgba(128,128,128,0.1)', borderRadius: 2, mb: 3 }}>
+                            <Box sx={{ p: 2, borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
+                                <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Configured Servers</Typography>
+                            </Box>
+                            {mcpServers.length === 0 ? (
+                                <Box sx={{ p: 3, textAlign: 'center', opacity: 0.5, fontSize: 13 }}>
+                                    No servers configured. Add one below.
+                                </Box>
+                            ) : (
+                                <List disablePadding>
+                                    {mcpServers.map((server, i) => (
+                                        <React.Fragment key={i}>
+                                            <ListItemButton>
+                                                <ListItemText
+                                                    primary={server.name}
+                                                    secondary={`${server.type === 'stdio' ? `${server.command} ${server.args}` : server.url}`}
+                                                    primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
+                                                    secondaryTypographyProps={{ fontSize: 12, fontFamily: 'monospace' }}
+                                                />
+                                                <IconButton size="small" color="error" onClick={() => handleRemoveMcpServer(server.name)}>
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </ListItemButton>
+                                            {i < mcpServers.length - 1 && <Divider />}
+                                        </React.Fragment>
+                                    ))}
+                                </List>
+                            )}
+                        </Box>
 
                         <Box sx={{ border: '1px solid rgba(128,128,128,0.1)', borderRadius: 2, p: 2 }}>
                             <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 2 }}>Add New Server</Typography>
