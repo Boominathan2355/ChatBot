@@ -152,13 +152,13 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
             // Optimistic update
             const updatedServers = mcpServers.filter((s: any) => s.name !== name);
             setMcpServers(updatedServers);
-            
+
             const { data } = await api.get('/settings');
             const newBackendServers = (data.mcpServers || []).filter((s: any) => s.name !== name);
             await api.put('/settings', { ...data, mcpServers: newBackendServers });
             // No need to reload entire settings as we updated efficiently
-        } catch (e: any) { 
-            console.error(e); 
+        } catch (e: any) {
+            console.error(e);
             loadSettings(); // Revert on error
         }
     };
@@ -169,7 +169,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                 ...newMcpServer,
                 args: newMcpServer.args.split(' ').filter(a => a.trim().length > 0)
             };
-            
+
             // Optimistic update
             const optimisticServers = [...mcpServers, serverConfig];
             setMcpServers(optimisticServers);
@@ -178,7 +178,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
             const { data } = await api.get('/settings');
             const currentServers = data.mcpServers || [];
             const updatedServers = [...currentServers, serverConfig];
-            
+
             await api.put('/settings', { ...data, mcpServers: updatedServers });
             alert('MCP Server added!');
         } catch (e: any) {
@@ -439,6 +439,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     onChange={(e) => setMode(e.target.value as any)}
                                     disableUnderline
                                     sx={{ fontSize: 14 }}
+                                    MenuProps={{ disablePortal: true }}
                                 >
                                     <MenuItem value="system">System</MenuItem>
                                     <MenuItem value="dark">Dark</MenuItem>
@@ -474,6 +475,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     onChange={(e) => setTimezone(e.target.value)}
                                     disableUnderline
                                     sx={{ fontSize: 14 }}
+                                    MenuProps={{ disablePortal: true }}
                                 >
                                     <MenuItem value="UTC">UTC</MenuItem>
                                     <MenuItem value="America/New_York">America/New York (EST)</MenuItem>
@@ -499,6 +501,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     disableUnderline
                                     sx={{ fontSize: 14 }}
                                     displayEmpty
+                                    MenuProps={{ disablePortal: true }}
                                 >
                                     <MenuItem value="">Not set</MenuItem>
                                     <MenuItem value="United States">United States</MenuItem>
@@ -526,6 +529,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                 <Select
                                     value={aiProvider}
                                     onChange={(e) => setAiProvider(e.target.value)}
+                                    MenuProps={{ disablePortal: true }}
                                 >
                                     <MenuItem value="ollama">Ollama (Local)</MenuItem>
                                     <MenuItem value="openai">OpenAI</MenuItem>
@@ -566,6 +570,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                             value={ollamaConfig.model}
                                             onChange={(e) => setOllamaConfig({ ...ollamaConfig, model: e.target.value })}
                                             displayEmpty
+                                            MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
                                         >
                                             <MenuItem value="" disabled>
                                                 {loadingModels ? 'Loading models...' : (availableModels.length === 0 ? 'No models found - click Refresh' : 'Select a model')}
@@ -606,6 +611,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={openaiConfig.model}
                                             onChange={(e) => setOpenaiConfig({ ...openaiConfig, model: e.target.value })}
+                                            MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
                                         >
                                             {availableModels.length > 0 ? availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -650,6 +656,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={anthropicConfig.model}
                                             onChange={(e) => setAnthropicConfig({ ...anthropicConfig, model: e.target.value })}
+                                            MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -687,6 +694,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={deepseekConfig.model}
                                             onChange={(e) => setDeepseekConfig({ ...deepseekConfig, model: e.target.value })}
+                                            MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -724,6 +732,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={grokConfig.model}
                                             onChange={(e) => setGrokConfig({ ...grokConfig, model: e.target.value })}
+                                            MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -774,6 +783,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                             <Select
                                                 value={awsConfig.modelId}
                                                 onChange={(e) => setAwsConfig({ ...awsConfig, modelId: e.target.value })}
+                                                MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
                                             >
                                                 {availableModels.map(m => (
                                                     <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -962,6 +972,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     <Select
                                         value={newMcpServer.type}
                                         onChange={e => setNewMcpServer({ ...newMcpServer, type: e.target.value })}
+                                        MenuProps={{ disablePortal: true }}
                                     >
                                         <MenuItem value="stdio">Stdio (Command Line)</MenuItem>
                                         <MenuItem value="sse">SSE (Server-Sent Events)</MenuItem>

@@ -2,8 +2,14 @@ import React, { useEffect, useRef } from 'react';
 import { Box, styled } from '@mui/material';
 import { useThemeMode } from '../context/ThemeContext';
 
+type ThemeMode = 'light' | 'dark' | 'system' | 'soft-dark' | 'night' | 'high-contrast' | 'soft-light';
+
+const isDarkTheme = (mode: ThemeMode): boolean => {
+    return ['dark', 'soft-dark', 'night', 'high-contrast', 'system'].includes(mode);
+};
+
 interface BackgroundContainerProps {
-    mode: 'light' | 'dark' | 'system';
+    mode: ThemeMode;
 }
 
 const BackgroundContainer = styled(Box)<BackgroundContainerProps>(({ mode }) => ({
@@ -14,7 +20,7 @@ const BackgroundContainer = styled(Box)<BackgroundContainerProps>(({ mode }) => 
     height: '100%',
     zIndex: -1,
     overflow: 'hidden',
-    background: (mode === 'dark' || mode === 'system') ? '#212121' : '#ffffff',
+    background: isDarkTheme(mode) ? '#212121' : '#ffffff',
 }));
 
 interface ParticleProps {
@@ -23,7 +29,7 @@ interface ParticleProps {
     left: number;
     delay: number;
     duration: number;
-    mode: 'light' | 'dark' | 'system';
+    mode: ThemeMode;
 }
 
 const Particle = styled('div')<ParticleProps>(
@@ -36,7 +42,7 @@ const Particle = styled('div')<ParticleProps>(
         left: `${left}%`,
         animation: `float ${duration}s ease-in-out ${delay}s infinite`,
         pointerEvents: 'none',
-        opacity: (mode === 'dark' || mode === 'system') ? 0.08 : 0.06,
+        opacity: isDarkTheme(mode) ? 0.08 : 0.06,
 
         '@keyframes float': {
             '0%, 100%': { transform: 'translateY(0)' },
@@ -75,7 +81,7 @@ const AnimatedBackground: React.FC = React.memo(() => {
                     duration={particle.duration}
                     mode={mode}
                     sx={{
-                        background: (mode === 'dark' || mode === 'system')
+                        background: isDarkTheme(mode)
                             ? 'radial-gradient(circle, rgba(255, 255, 255, 0.5), transparent)'
                             : 'radial-gradient(circle, rgba(0, 0, 0, 0.3), transparent)',
                         filter: 'blur(60px)',

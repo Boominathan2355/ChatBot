@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useEffect } from 'react';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { createTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+// Import the action from uiSlice (make sure to export it)
+import { setThemeMode } from '../store/slices/uiSlice';
 
 type ThemeMode = 'light' | 'dark' | 'system' | 'soft-dark' | 'night' | 'high-contrast' | 'soft-light';
 
@@ -90,20 +93,26 @@ const COLORS = {
 };
 
 export const CustomThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-    const [mode, setMode] = useState<ThemeMode>(() => {
-        const saved = localStorage.getItem('theme-mode');
-        return (saved as ThemeMode) || 'dark';
-    });
+    const dispatch = useAppDispatch();
+    const mode = useAppSelector((state) => state.ui.themeMode);
 
-    useEffect(() => {
-        localStorage.setItem('theme-mode', mode);
-    }, [mode]);
+    // No local state for mode anymore
+
+    // Sync to local storage is handled in the slice, or here if we want double safety, 
+    // but slice already does it. 
+    // Actually, slice reducer does it.
 
     const toggleTheme = () => {
-        setMode((prev) => {
-            if (prev === 'system') return 'dark';
-            return prev === 'dark' ? 'light' : 'dark';
-        });
+        if (mode === 'system') {
+            dispatch(setThemeMode('dark'));
+        } else {
+            dispatch(setThemeMode(mode === 'dark' ? 'light' : 'dark'));
+        }
+    };
+
+    // We can expose setMode to be used via context, which dispatches action
+    const setModeWrapper = (newMode: ThemeMode) => {
+        dispatch(setThemeMode(newMode));
     };
 
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -373,7 +382,7 @@ export const CustomThemeProvider: React.FC<ThemeProviderProps> = ({ children }) 
     );
 
     return (
-        <ThemeContext.Provider value={{ mode, toggleTheme, setMode, resolvedMode }}>
+        <ThemeContext.Provider value={{ mode, toggleTheme, setMode: setModeWrapper, resolvedMode }}>
             <MuiThemeProvider theme={theme}>{children}</MuiThemeProvider>
         </ThemeContext.Provider>
     );
