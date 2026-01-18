@@ -27,6 +27,9 @@ interface ChatInputAreaProps {
     webSearchEnabled: boolean;
     onToggleWebSearch: () => void;
     isSearching: boolean;
+    // Thinking mode
+    thinkingEnabled: boolean;
+    onToggleThinking: () => void;
     // File attachment
     attachedFile: File | null;
     attachedFileUrl: string | null;
@@ -70,6 +73,8 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     onModelMenuOpen,
     onModelMenuClose,
     resolvedMode,
+    thinkingEnabled,
+    onToggleThinking,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,6 +154,36 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             {isSearching
                                 ? <CircularProgress size={18} />
                                 : <LanguageIcon sx={{ fontSize: 18 }} />}
+                        </IconButton>
+                    </Tooltip>
+
+                    {/* Thinking Mode Toggle */}
+                    <Tooltip title={thinkingEnabled ? 'Thinking Enabled' : 'Thinking Disabled'}>
+                        <IconButton
+                            onClick={onToggleThinking}
+                            size="small"
+                            sx={{
+                                bgcolor: thinkingEnabled
+                                    ? (isDarkMode(resolvedMode)
+                                        ? 'rgba(255,255,255,0.1)'
+                                        : 'rgba(0,0,0,0.08)')
+                                    : 'transparent',
+                                color: thinkingEnabled ? 'primary.main' : 'inherit'
+                            }}
+                        >
+                            <Box sx={{
+                                width: 18,
+                                height: 18,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 'bold',
+                                fontSize: 12,
+                                border: '1.5px solid currentColor',
+                                borderRadius: '50%'
+                            }}>
+                                T
+                            </Box>
                         </IconButton>
                     </Tooltip>
 
@@ -240,7 +275,7 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 onModelSwitch={onModelSwitch}
                 resolvedMode={resolvedMode}
             />
-        </Box>
+        </Box >
     );
 };
 

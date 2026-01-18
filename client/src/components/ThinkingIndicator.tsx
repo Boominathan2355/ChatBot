@@ -37,7 +37,7 @@ const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ resolvedMode }) =
     };
 
     return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 2, opacity: 0.8 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1, opacity: 0.8 }}>
             {/* Pulsing Dots */}
             <Box sx={{ display: 'flex', gap: 0.5 }}>
                 <Box sx={{ ...dotStyle, animationDelay: '0s' }} />

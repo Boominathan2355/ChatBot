@@ -22,5 +22,13 @@
   "[system: respond in formal tone and normal mode] last time who was the cm of tamil nadu 2022": {
     "optimized": "\"Latest Chief Minister Tamil Nadu 2022 official name\"",
     "timestamp": 1768741667134
+  },
+  "[system: respond in formal tone and normal mode] check the recent news on tamil nadu 2026 jan": {
+    "optimized": "**\"Tamil Nadu 2026 January news updates\"**",
+    "timestamp": 1768741846441
+  },
+  "[system: respond in formal tone and normal mode] latest running movie in kinathukadavu": {
+    "optimized": "\"latest running movie in **Kanathukulam** (Tamil Nadu) 2026\"",
+    "timestamp": 1768743089575
   }
 }

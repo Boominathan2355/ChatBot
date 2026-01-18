@@ -64,7 +64,11 @@ const ChatPage: React.FC = () => {
     const [editedContent, setEditedContent] = useState('');
 
     // Web search state
+    // Web search state
     const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+
+    // Thinking mode state
+    const [thinkingEnabled, setThinkingEnabled] = useState(true);
 
     // Input state
     const [input, setInput] = useState('');
@@ -196,7 +200,8 @@ const ChatPage: React.FC = () => {
                 chatManagement.currentChat,
                 webSearchEnabled,
                 aiProvider,
-                currentModel
+                currentModel,
+                thinkingEnabled
             );
         } catch (error) {
             console.error('Failed to save edited message:', error);
@@ -212,7 +217,8 @@ const ChatPage: React.FC = () => {
             chatManagement.currentChat,
             webSearchEnabled,
             aiProvider,
-            currentModel
+            currentModel,
+            thinkingEnabled
         );
         setInput('');
     }, [input, chatManagement.currentChatId, chatManagement.currentChat, webSearchEnabled, aiProvider, currentModel, chat.handleSend, chatManagement.updateChatTitle]);
@@ -428,6 +434,8 @@ const ChatPage: React.FC = () => {
                         webSearchEnabled={webSearchEnabled}
                         onToggleWebSearch={() => setWebSearchEnabled(!webSearchEnabled)}
                         isSearching={chat.isSearching}
+                        thinkingEnabled={thinkingEnabled}
+                        onToggleThinking={() => setThinkingEnabled(!thinkingEnabled)}
                         attachedFile={chat.attachedFile}
                         attachedFileUrl={chat.attachedFileUrl}
                         onFileSelect={chat.handleFileSelect}

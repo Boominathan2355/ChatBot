@@ -43,6 +43,7 @@ interface UseChatResult {
         webSearchEnabled: boolean,
         aiProvider: string,
         currentModel: string,
+        thinkingEnabled: boolean
     ) => Promise<void>;
     handleRegenerate: (
         index: number | undefined,
@@ -127,6 +128,7 @@ export function useChat(): UseChatResult {
         webSearchEnabled: boolean,
         aiProvider: string,
         currentModel: string,
+        thinkingEnabled: boolean
     ) => {
         if ((!input.trim() && !attachedFile) || isLoading || isUploading) return;
 
@@ -180,7 +182,8 @@ export function useChat(): UseChatResult {
                 currentChat,
                 webSearchEnabled,
                 aiProvider,
-                currentModel
+                currentModel,
+                thinkingEnabled
             ));
 
         } catch (e: any) {

@@ -92,6 +92,10 @@ class ScraperService {
             scrapedData.readingTime = Math.ceil(words.length / 200); // ~200 words per minute
 
             console.log(`✅ Scraped: ${scrapedData.title} (${scrapedData.wordCount} words)`);
+
+            // Auto-save scraped data
+            await this.saveToFile(scrapedData);
+
             return scrapedData;
 
         } catch (error) {
@@ -115,6 +119,10 @@ class ScraperService {
             data.readingTime = Math.ceil(words.length / 200);
 
             console.log(`✅ [Advanced] Scraped: ${data.title} (${data.wordCount} words)`);
+
+            // Auto-save advanced scraped data
+            await this.saveToFile(data);
+
             return data;
         }
         return null;

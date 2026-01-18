@@ -126,7 +126,8 @@ export const sendMessage = (
     currentChat: Chat | null,
     webSearchEnabled: boolean,
     aiProvider: string,
-    currentModel: string
+    currentModel: string,
+    thinkingEnabled: boolean
 ) => async (dispatch: any, _getState: any) => {
     dispatch(setLoading(true));
     dispatch(setError(null));
@@ -173,7 +174,8 @@ export const sendMessage = (
                 useRag: false,
                 documentId: fileObject?._id,
                 aiProvider,
-                model: currentModel
+                model: currentModel,
+                thinkingEnabled // New flag
             })
         });
 

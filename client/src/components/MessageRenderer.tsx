@@ -7,6 +7,7 @@ import CodeBlock from './CodeBlock';
 interface MessageRendererProps {
     content: string;
     role: 'user' | 'assistant' | 'system';
+    resolvedMode?: any; // Using any to bypass complex type imports for now, or use ResolvedMode if imported
 }
 
 // Styled components for markdown elements
@@ -97,7 +98,47 @@ const Citation = styled('span')(() => ({
     opacity: 0.7
 }));
 
-const MessageRenderer: React.FC<MessageRendererProps> = React.memo(({ content }) => {
+import ThinkingBlock from './ThinkingBlock';
+// ... (keep styled components)
+
+const MessageRenderer: React.FC<MessageRendererProps> = React.memo(({ content, resolvedMode }) => {
+    // Determine the resolved theme mode for ThinkingBlock
+    // Since MessageRenderer might not have direct access to resolvedMode prop, 
+    // we use a hook or assume context. If useResolvedMode isn't available, 
+    // we can default to system or modify prop to pass it down. 
+    // For now, let's assume we can simple pass a prop or use a hook if it existed.
+    // Instead of adding a complex hook dependency, let's stick to standard MUI theme.
+
+    // HOWEVER, MessageRenderer usually needs 'resolvedMode' passed from parent if we want consistency with other components.
+    // Looking at MessageBubble, it doesn't pass resolvedMode to MessageRenderer currently.
+    // Let's modify MessageRenderer props to accept resolvedMode or infer it.
+    // Since we don't want to break existing usage, we'll try to extract "think" block first.
+
+    // Handle both complete and incomplete (streaming) think blocks
+    const hasOpenTag = content.includes('<think>');
+    const hasCloseTag = content.includes('</think>');
+
+    let thoughtContent = null;
+    let finalContent = content;
+
+    if (hasOpenTag) {
+        if (hasCloseTag) {
+            // Complete block
+            const match = content.match(/<think>([\s\S]*?)<\/think>/);
+            if (match) {
+                thoughtContent = match[1].trim();
+                finalContent = content.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+            }
+        } else {
+            // Incomplete block (streaming)
+            const parts = content.split('<think>');
+            if (parts.length > 1) {
+                thoughtContent = parts[1].trim(); // Everything after <think> is thought
+                finalContent = parts[0].trim();   // Everything before <think> is final (usually empty)
+            }
+        }
+    }
+
     // Process content to wrap citations [1], [2], [Doc 1], etc.
     const processCitations = React.useCallback((text: string) => {
         // Broad regex to catch [1], [Doc 1], [Source 1]
@@ -120,122 +161,100 @@ const MessageRenderer: React.FC<MessageRendererProps> = React.memo(({ content })
         });
     }, []);
 
+    // We need resolvedMode for ThinkingBlock styles.
+    // Since we can't easily change the hook signature without refactoring parent, 
+    // we'll rely on the parent theme provider or context if possible. 
+    // BUT MessageBubble DOES have resolvedMode. Ideally, we pass it down.
+    // For this implementation, I will treat 'dark' as default or simple check.
+    // Better: Add 'resolvedMode' optional prop to MessageRenderer.
+
+    // Markdown Components Definition
+    const markdownComponents = {
+        // Code blocks with syntax highlighting
+        code({ className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || '');
+            const codeContent = String(children).replace(/\n$/, '');
+            const isBlock = match || codeContent.includes('\n');
+
+            if (isBlock) {
+                return (
+                    <CodeBlock
+                        language={match ? match[1] : ''}
+                        value={codeContent}
+                    />
+                );
+            }
+
+            // Inline code
+            return <InlineCode {...props}>{children}</InlineCode>;
+        },
+        // ... (keep other components similar to before)
+        p({ children }: any) {
+            const processedChildren = React.Children.map(children, child => {
+                if (typeof child === 'string') {
+                    return processCitations(child);
+                }
+                return child;
+            });
+            return <Typography component="p" variant="body1">{processedChildren}</Typography>;
+        },
+        a({ href, children }: any) {
+            return (
+                <StyledLink href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                </StyledLink>
+            );
+        },
+        ul({ children }: any) { return <Box component="ul">{children}</Box>; },
+        ol({ children }: any) { return <Box component="ol">{children}</Box>; },
+        li({ children }: any) {
+            const processedChildren = React.Children.map(children, child => {
+                if (typeof child === 'string') {
+                    return processCitations(child);
+                }
+                return child;
+            });
+            return <Typography component="li" variant="body1">{processedChildren}</Typography>;
+        },
+        h1({ children }: any) { return <Typography variant="h5" component="h1" color="text.primary" sx={{ mt: 2, mb: 1 }}>{children}</Typography>; },
+        h2({ children }: any) { return <Typography variant="h6" component="h2" color="text.primary" sx={{ mt: 2, mb: 1 }}>{children}</Typography>; },
+        h3({ children }: any) { return <Typography variant="subtitle1" component="h3" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5 }}>{children}</Typography>; },
+        h4({ children }: any) { return <Typography variant="subtitle2" component="h4" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5 }}>{children}</Typography>; },
+        h5({ children }: any) { return <Typography variant="button" component="h5" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5, display: 'block' }}>{children}</Typography>; },
+        h6({ children }: any) { return <Typography variant="caption" component="h6" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5, display: 'block', textTransform: 'uppercase' }}>{children}</Typography>; },
+        blockquote({ children }: any) { return <Box component="blockquote">{children}</Box>; },
+        strong({ children }: any) { return <Typography component="strong" fontWeight={700} sx={{ display: 'inline' }}>{children}</Typography>; },
+        em({ children }: any) { return <Typography component="em" fontStyle="italic" sx={{ display: 'inline' }}>{children}</Typography>; },
+        table({ children }: any) {
+            return (
+                <Box sx={{ overflowX: 'auto', display: 'block', maxWidth: '100%', my: 2 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        {children}
+                    </table>
+                </Box>
+            );
+        },
+    };
+
     return (
         <MarkdownContainer>
+            {thoughtContent && (
+                <ThinkingBlock
+                    content={thoughtContent}
+                    resolvedMode={resolvedMode}
+                />
+            )}
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                components={{
-                    // Code blocks with syntax highlighting
-                    code({ className, children, ...props }) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        const codeContent = String(children).replace(/\n$/, '');
-                        const isBlock = match || codeContent.includes('\n');
-
-                        if (isBlock) {
-                            return (
-                                <CodeBlock
-                                    language={match ? match[1] : ''}
-                                    value={codeContent}
-                                />
-                            );
-                        }
-
-                        // Inline code
-                        return <InlineCode {...props}>{children}</InlineCode>;
-                    },
-
-                    // Paragraphs
-                    p({ children }) {
-                        // If children is just text, process citations
-                        const processedChildren = React.Children.map(children, child => {
-                            if (typeof child === 'string') {
-                                return processCitations(child);
-                            }
-                            return child;
-                        });
-                        return <Typography component="p" variant="body1">{processedChildren}</Typography>;
-                    },
-
-                    // Links
-                    a({ href, children }) {
-                        return (
-                            <StyledLink href={href} target="_blank" rel="noopener noreferrer">
-                                {children}
-                            </StyledLink>
-                        );
-                    },
-
-                    // Lists
-                    ul({ children }) {
-                        return <Box component="ul">{children}</Box>;
-                    },
-                    ol({ children }) {
-                        return <Box component="ol">{children}</Box>;
-                    },
-                    li({ children }) {
-                        const processedChildren = React.Children.map(children, child => {
-                            if (typeof child === 'string') {
-                                return processCitations(child);
-                            }
-                            return child;
-                        });
-                        return <Typography component="li" variant="body1">{processedChildren}</Typography>;
-                    },
-
-                    // Headings
-                    h1({ children }) {
-                        return <Typography variant="h5" component="h1" color="text.primary" sx={{ mt: 2, mb: 1 }}>{children}</Typography>;
-                    },
-                    h2({ children }) {
-                        return <Typography variant="h6" component="h2" color="text.primary" sx={{ mt: 2, mb: 1 }}>{children}</Typography>;
-                    },
-                    h3({ children }) {
-                        return <Typography variant="subtitle1" component="h3" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5 }}>{children}</Typography>;
-                    },
-                    h4({ children }) {
-                        return <Typography variant="subtitle2" component="h4" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5 }}>{children}</Typography>;
-                    },
-                    h5({ children }) {
-                        return <Typography variant="button" component="h5" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5, display: 'block' }}>{children}</Typography>;
-                    },
-                    h6({ children }) {
-                        return <Typography variant="caption" component="h6" fontWeight={600} color="text.primary" sx={{ mt: 1.5, mb: 0.5, display: 'block', textTransform: 'uppercase' }}>{children}</Typography>;
-                    },
-
-                    // Blockquote
-                    blockquote({ children }) {
-                        return <Box component="blockquote">{children}</Box>;
-                    },
-
-                    // Strong/Bold
-                    strong({ children }) {
-                        return <Typography component="strong" fontWeight={700} sx={{ display: 'inline' }}>{children}</Typography>;
-                    },
-
-                    // Emphasis/Italic
-                    em({ children }) {
-                        return <Typography component="em" fontStyle="italic" sx={{ display: 'inline' }}>{children}</Typography>;
-                    },
-
-                    // Table wrapper for horizontal scrolling
-                    table({ children }) {
-                        return (
-                            <Box sx={{ overflowX: 'auto', display: 'block', maxWidth: '100%', my: 2 }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                    {children}
-                                </table>
-                            </Box>
-                        );
-                    },
-                }}
+                components={markdownComponents}
             >
-                {content}
+                {finalContent}
             </ReactMarkdown>
         </MarkdownContainer>
     );
 }, (prevProps, nextProps) => {
-    // Only re-render if content actually changed
-    return prevProps.content === nextProps.content && prevProps.role === nextProps.role;
+    return prevProps.content === nextProps.content &&
+        prevProps.role === nextProps.role;
 });
 
 export default MessageRenderer;

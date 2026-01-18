@@ -216,12 +216,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                 <MessageRenderer
                                     content={message.content}
                                     role={message.role}
+                                    resolvedMode={resolvedMode}
                                 />
                             )}
                             {!message.content &&
                                 isAssistant &&
                                 isLoading && (
-                                    <Box sx={{ pt: 1, pl: 0.5 }}>
+                                    <Box sx={{ pl: 0.5 }}>
                                         <ThinkingIndicator resolvedMode={resolvedMode} />
                                     </Box>
                                 )}
