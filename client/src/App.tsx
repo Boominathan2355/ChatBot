@@ -10,7 +10,7 @@ import ChatPage from './pages/ChatPage';
 import SettingsPage from './pages/SettingsPage';
 import GroupsPage from './pages/GroupsPage';
 import SharedChatPage from './pages/SharedChatPage';
-// import ComponentShowcase from './pages/ComponentShowcase';
+//import ComponentShowcase from './pages/ComponentShowcase';
 
 const App: React.FC = () => {
   const { token } = useAuthStore();
@@ -22,7 +22,7 @@ const App: React.FC = () => {
       <Router>
         <Routes>
           <Route path="/" element={token ? <Navigate to="/chat" /> : <Navigate to="/login" />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={!token ? <Login /> : <Navigate to="/chat" />} />
           <Route path="/chat" element={token ? <ChatPage /> : <Navigate to="/login" />} />
           <Route path="/settings" element={token ? <SettingsPage /> : <Navigate to="/login" />} />
           <Route path="/groups" element={token ? <GroupsPage /> : <Navigate to="/login" />} />

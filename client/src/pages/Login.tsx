@@ -44,7 +44,7 @@ const Login: React.FC = () => {
                         p: 4,
                         width: '100%',
                         textAlign: 'center',
-                        animation: 'float 6s ease-in-out infinite'
+                        // animation: 'float 6s ease-in-out infinite'
                     }}
                     className="animate-pulse-glow"
                 >

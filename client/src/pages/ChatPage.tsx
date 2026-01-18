@@ -1030,10 +1030,19 @@ const ChatPage: React.FC = () => {
                         open={openMenu}
                         onClose={handleMenuClose}
                         PaperProps={{
-                            sx: { width: 220, mt: 1, bgcolor: resolvedMode === 'dark' ? '#1a1a1a' : '#fff' }
+                            sx: {
+                                width: 220,
+                                mt: 1,
+                                bgcolor: resolvedMode === 'dark' ? 'rgba(26, 26, 26, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                                backdropFilter: 'blur(16px)',
+                                WebkitBackdropFilter: 'blur(16px)',
+                                border: resolvedMode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                                boxShadow: resolvedMode === 'dark' ? '0 8px 32px rgba(0, 0, 0, 0.4)' : '0 8px 32px rgba(0, 0, 0, 0.1)',
+                            }
                         }}
                         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
                         transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                        disableEnforceFocus
                     >
                         <MenuItem onClick={handleSettingsOpen}>
                             <ListItemIcon><SmartToyIcon fontSize="small" /></ListItemIcon>
@@ -1665,11 +1674,11 @@ const ChatPage: React.FC = () => {
                 onClose={() => setModelMenuAnchor(null)}
                 PaperProps={{
                     sx: {
-                        bgcolor: resolvedMode === 'dark' ? 'rgba(26, 26, 26, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+                        bgcolor: resolvedMode === 'dark' ? 'rgba(26, 26, 26, 0.8)' : 'rgba(255, 255, 255, 0.8)',
                         backdropFilter: 'blur(20px)',
                         WebkitBackdropFilter: 'blur(20px)',
                         color: resolvedMode === 'dark' ? '#fff' : '#212121',
-                        border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                        border: resolvedMode === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
                         minWidth: 200,
                         maxHeight: 400,
                         boxShadow: resolvedMode === 'dark' ? '0 8px 32px rgba(0,0,0,0.4)' : '0 8px 32px rgba(0,0,0,0.1)',
@@ -1679,6 +1688,7 @@ const ChatPage: React.FC = () => {
                 }}
                 transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
                 anchorOrigin={{ horizontal: 'left', vertical: 'top' }}
+                disableEnforceFocus
             >
                 <Box sx={{ px: 2, py: 1.5 }}>
                     <Typography sx={{ fontSize: 11, fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1697,9 +1707,11 @@ const ChatPage: React.FC = () => {
                                 py: 1,
                                 px: 2,
                                 '&.Mui-selected': {
-                                    bgcolor: 'primary.main',
-                                    color: '#fff',
-                                    '&:hover': { bgcolor: 'primary.dark' }
+                                    bgcolor: resolvedMode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                                    color: resolvedMode === 'dark' ? '#fff' : '#000',
+                                    '&:hover': {
+                                        bgcolor: resolvedMode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
+                                    }
                                 }
                             }}
                         >
@@ -1730,7 +1742,16 @@ const ChatPage: React.FC = () => {
                         ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
                         : undefined
                 }
-                PaperProps={{ sx: { width: 200, bgcolor: resolvedMode === 'dark' ? '#1a1a1a' : '#fff' } }}
+                PaperProps={{
+                    sx: {
+                        width: 200,
+                        bgcolor: resolvedMode === 'dark' ? 'rgba(26, 26, 26, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                        backdropFilter: 'blur(16px)',
+                        WebkitBackdropFilter: 'blur(16px)',
+                        border: resolvedMode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                    }
+                }}
+                disableEnforceFocus
             >
                 <MenuItem onClick={handleRenameInit}>
                     <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>

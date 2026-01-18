@@ -340,6 +340,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     onChange={(e) => setMode(e.target.value as any)}
                                     disableUnderline
                                     sx={{ fontSize: 14 }}
+                                    MenuProps={{ disableEnforceFocus: true }}
                                 >
                                     <MenuItem value="system">System</MenuItem>
                                     <MenuItem value="dark">Dark</MenuItem>
@@ -400,6 +401,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                     disableUnderline
                                     sx={{ fontSize: 14 }}
                                     displayEmpty
+                                    MenuProps={{ disableEnforceFocus: true }}
                                 >
                                     <MenuItem value="">Not set</MenuItem>
                                     <MenuItem value="United States">United States</MenuItem>
@@ -427,6 +429,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                 <Select
                                     value={aiProvider}
                                     onChange={(e) => setAiProvider(e.target.value)}
+                                    MenuProps={{ disableEnforceFocus: true }}
                                 >
                                     <MenuItem value="ollama">Ollama (Local)</MenuItem>
                                     <MenuItem value="openai">OpenAI</MenuItem>
@@ -467,6 +470,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                             value={ollamaConfig.model}
                                             onChange={(e) => setOllamaConfig({ ...ollamaConfig, model: e.target.value })}
                                             displayEmpty
+                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             <MenuItem value="" disabled>
                                                 {loadingModels ? 'Loading models...' : (availableModels.length === 0 ? 'No models found - click Refresh' : 'Select a model')}
@@ -507,6 +511,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={openaiConfig.model}
                                             onChange={(e) => setOpenaiConfig({ ...openaiConfig, model: e.target.value })}
+                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             {availableModels.length > 0 ? availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -551,6 +556,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={anthropicConfig.model}
                                             onChange={(e) => setAnthropicConfig({ ...anthropicConfig, model: e.target.value })}
+                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -588,6 +594,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={deepseekConfig.model}
                                             onChange={(e) => setDeepseekConfig({ ...deepseekConfig, model: e.target.value })}
+                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -625,6 +632,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                         <Select
                                             value={grokConfig.model}
                                             onChange={(e) => setGrokConfig({ ...grokConfig, model: e.target.value })}
+                                            MenuProps={{ disableEnforceFocus: true }}
                                         >
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
@@ -675,6 +683,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                             <Select
                                                 value={awsConfig.modelId}
                                                 onChange={(e) => setAwsConfig({ ...awsConfig, modelId: e.target.value })}
+                                                MenuProps={{ disableEnforceFocus: true }}
                                             >
                                                 {availableModels.map(m => (
                                                     <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
