@@ -7,7 +7,7 @@ const userSettingsSchema = new mongoose.Schema({
     // Provider specific configs - API keys have select: false for security
     ollama: {
         baseUrl: { type: String, default: 'http://localhost:11434' },
-        model: { type: String, default: 'qwen3-vl:2b' }
+        model: { type: String, default: '' }
     },
     colab: {
         baseUrl: { type: String, default: '' },
@@ -15,15 +15,15 @@ const userSettingsSchema = new mongoose.Schema({
     },
     openai: {
         apiKey: { type: String, default: '', select: false },
-        model: { type: String, default: 'gpt-3.5-turbo' }
+        model: { type: String, default: '' }
     },
     anthropic: {
         apiKey: { type: String, default: '', select: false },
-        model: { type: String, default: 'claude-3-sonnet-20240229' }
+        model: { type: String, default: '' }
     },
     deepseek: {
         apiKey: { type: String, default: '', select: false },
-        model: { type: String, default: 'deepseek-chat' }
+        model: { type: String, default: '' }
     },
     grok: {
         apiKey: { type: String, default: '', select: false },

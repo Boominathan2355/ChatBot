@@ -1,6 +1,5 @@
 import React from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import OopsPage from '../pages/OopsPage';
 
 interface ErrorFallbackProps {
     error: any;
@@ -9,12 +8,11 @@ interface ErrorFallbackProps {
 
 const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, resetErrorBoundary }) => {
     return (
-        <OopsPage
-            title="Oops!"
-            description={error.message || "An unexpected error occurred."}
-            onReset={resetErrorBoundary}
-            isError={true}
-        />
+        <div role="alert" style={{ padding: '20px', textAlign: 'center', color: 'red' }}>
+            <h2>Oops! Something went wrong:</h2>
+            <pre>{error.message}</pre>
+            <button onClick={resetErrorBoundary}>Try again</button>
+        </div>
     );
 };
 

@@ -578,6 +578,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, initialT
                                             {availableModels.map(m => (
                                                 <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
                                             ))}
+                                            {ollamaConfig.model && !availableModels.some(m => m.id === ollamaConfig.model) && (
+                                                <MenuItem value={ollamaConfig.model} disabled>
+                                                    {ollamaConfig.model} (Not Found)
+                                                </MenuItem>
+                                            )}
                                         </Select>
                                     </FormControl>
                                 </Box>

@@ -36,7 +36,7 @@ import SettingsDialog from '../components/SettingsDialog';
 import { ChatConfigMenu } from '../components/ChatConfigMenu';
 import { ExportMenu } from '../components/ExportMenu';
 import { ErrorBoundary } from 'react-error-boundary';
-import OopsPage from './OopsPage';
+// import OopsPage from './OopsPage';
 
 const ChatPage: React.FC = () => {
     const { resolvedMode } = useThemeMode();
@@ -145,6 +145,21 @@ const ChatPage: React.FC = () => {
         }
     };
 
+    // Auto-select model if current is invalid
+    useEffect(() => {
+        if (!isLoadingModels && availableModels.length > 0) {
+            const isCurrentValid = availableModels.some(m => m.id === currentModel);
+            if (!isCurrentValid) {
+                const firstModel = availableModels[0].id;
+                console.log('Auto-selecting model:', firstModel);
+                setCurrentModel(firstModel);
+                // Sync with settings silently
+                api.put('/settings', { aiProvider, [aiProvider]: { model: firstModel } }).catch(console.error);
+            }
+        }
+    }, [isLoadingModels, availableModels, currentModel, aiProvider]);
+
+
     const handleModelSwitch = async (modelId: string) => {
         try {
             setCurrentModel(modelId);
@@ -209,11 +224,21 @@ const ChatPage: React.FC = () => {
     };
 
     // Send handler
-    const handleSend = useCallback(() => {
-        if (!chatManagement.currentChatId) return;
+    const handleSend = useCallback(async () => {
+        let activeChatId = chatManagement.currentChatId;
+
+        if (!activeChatId) {
+            console.log('No active chat, creating new one...');
+            const newId = await chatManagement.createNewChat();
+            if (newId) activeChatId = newId;
+            else return; // Failed to create
+        }
+
+        if (!activeChatId) return;
+
         chat.handleSend(
             input,
-            chatManagement.currentChatId,
+            activeChatId,
             chatManagement.currentChat,
             webSearchEnabled,
             aiProvider,
@@ -221,7 +246,7 @@ const ChatPage: React.FC = () => {
             thinkingEnabled
         );
         setInput('');
-    }, [input, chatManagement.currentChatId, chatManagement.currentChat, webSearchEnabled, aiProvider, currentModel, chat.handleSend, chatManagement.updateChatTitle]);
+    }, [input, chatManagement.currentChatId, chatManagement.currentChat, webSearchEnabled, aiProvider, currentModel, thinkingEnabled, chat.handleSend, chatManagement.createNewChat]);
 
     // Regenerate handler
     const handleRegenerate = useCallback((index: number) => {
@@ -396,13 +421,19 @@ const ChatPage: React.FC = () => {
                 </Box>
 
                 <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
-                    <OopsPage
-                        title="Chat Interface Error"
-                        description={error.message || "Something went wrong in the chat window."}
-                        onReset={resetErrorBoundary}
-                        isError={true}
-                        sx={{ height: '100%', justifyContent: 'center' }}
-                    />
+                    <Box sx={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        p: 3
+                    }}>
+                        <Typography variant="h5" color="error" gutterBottom>Chat Interface Error</Typography>
+                        <Typography sx={{ mb: 3 }}>{error.message || "Something went wrong in the chat window."}</Typography>
+                        <Button variant="outlined" onClick={resetErrorBoundary}>Reload Chat</Button>
+                    </Box>
                 )}>
                     {/* Messages Area */}
                     <Box ref={scrollRef} onScroll={handleScroll} sx={{ flex: 1, overflowY: 'auto' }}>

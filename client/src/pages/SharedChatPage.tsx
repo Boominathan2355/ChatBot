@@ -9,7 +9,7 @@ import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '@mui/material';
 import { ErrorBoundary } from 'react-error-boundary';
-import OopsPage from './OopsPage';
+// import OopsPage from './OopsPage';
 
 const SharedChatPage: React.FC = () => {
     const { token } = useParams<{ token: string }>();
@@ -90,13 +90,11 @@ const SharedChatPage: React.FC = () => {
 
             {/* Content */}
             <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
-                <OopsPage
-                    title="Shared Chat Error"
-                    description={error.message || "Something went wrong loading the shared chat."}
-                    onReset={resetErrorBoundary}
-                    isError={true}
-                    sx={{ height: '100%' }}
-                />
+                <Box sx={{ p: 4, textAlign: 'center', color: 'error.main' }}>
+                    <Typography variant="h6">Shared Chat Error</Typography>
+                    <Typography sx={{ mb: 2 }}>{error.message || "Something went wrong."}</Typography>
+                    <Button onClick={resetErrorBoundary}>Try Again</Button>
+                </Box>
             )}>
                 <Container maxWidth="md" sx={{ flex: 1, overflowY: 'auto', py: 4 }} ref={scrollRef}>
                     {loading ? (

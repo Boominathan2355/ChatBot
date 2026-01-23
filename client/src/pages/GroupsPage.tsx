@@ -14,7 +14,7 @@ import { useThemeMode } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import SettingsDialog from '../components/SettingsDialog';
 import { ErrorBoundary } from 'react-error-boundary';
-import OopsPage from './OopsPage';
+// import OopsPage from './OopsPage';
 
 const DRAWER_WIDTH = 260;
 
@@ -337,13 +337,11 @@ const GroupsPage: React.FC = () => {
             {/* Main Content Area - Groups Management */}
             <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', bgcolor: 'transparent' }}>
                 <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
-                    <OopsPage
-                        title="Groups Error"
-                        description={error.message || "Something went wrong in the groups page."}
-                        onReset={resetErrorBoundary}
-                        isError={true}
-                        sx={{ height: '100%' }}
-                    />
+                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                        <Typography color="error" variant="h6">Something went wrong</Typography>
+                        <Typography sx={{ mb: 2 }}>{error.message}</Typography>
+                        <GlassButton onClick={resetErrorBoundary}>Try Again</GlassButton>
+                    </Box>
                 )}>
                     {/* Header (Simplified for Groups) */}
                     <Box sx={{

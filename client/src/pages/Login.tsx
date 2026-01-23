@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { GlassCard, GlassButton } from '../components';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { ErrorBoundary } from 'react-error-boundary';
-import OopsPage from './OopsPage';
+// import OopsPage from './OopsPage';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -42,13 +42,11 @@ const Login: React.FC = () => {
                 }}
             >
                 <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
-                    <OopsPage
-                        title="Authentication Error"
-                        description={error.message || "Something went wrong during login."}
-                        onReset={resetErrorBoundary}
-                        isError={true}
-                        sx={{ height: 'auto', minHeight: 400 }}
-                    />
+                    <Box sx={{ p: 4, textAlign: 'center', color: 'error.main' }}>
+                        <Typography variant="h6">Authentication Error</Typography>
+                        <Typography sx={{ mb: 2 }}>{error.message || "Something went wrong."}</Typography>
+                        <GlassButton onClick={resetErrorBoundary}>Try Again</GlassButton>
+                    </Box>
                 )}>
                     <GlassCard
                         sx={{

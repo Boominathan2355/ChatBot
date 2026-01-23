@@ -55,7 +55,7 @@ interface UseChatManagementResult {
     fetchChats: (locationState?: { chatId?: string }) => Promise<void>;
     fetchGroups: () => Promise<void>;
     selectChat: (id: string) => Promise<any[]>;
-    createNewChat: () => Promise<void>;
+    createNewChat: () => Promise<string | null>;
     startGroupChat: (groupId: string) => Promise<void>;
     handleDeleteChat: (e: React.MouseEvent, chatId: string) => Promise<void>;
     // Context menu
@@ -134,7 +134,11 @@ export function useChatManagement(): UseChatManagementResult {
     }, [dispatch]);
 
     const createNewChat = useCallback(async () => {
-        await dispatch(createNewChatThunk());
+        const result = await dispatch(createNewChatThunk());
+        if (createNewChatThunk.fulfilled.match(result)) {
+            return result.payload._id;
+        }
+        return null;
     }, [dispatch]);
 
     const startGroupChat = useCallback(async (groupId: string) => {

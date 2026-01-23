@@ -12,7 +12,6 @@ import ChatPage from './pages/ChatPage';
 import SettingsPage from './pages/SettingsPage';
 import GroupsPage from './pages/GroupsPage';
 import SharedChatPage from './pages/SharedChatPage';
-import OopsPage from './pages/OopsPage';
 
 const App: React.FC = () => {
   const { token } = useAppSelector((state) => state.auth);
@@ -30,8 +29,7 @@ const App: React.FC = () => {
             <Route path="/settings" element={token ? <SettingsPage /> : <Navigate to="/login" />} />
             <Route path="/groups" element={token ? <GroupsPage /> : <Navigate to="/login" />} />
             <Route path="/shared/:token" element={<SharedChatPage />} />
-            <Route path="/oops" element={<OopsPage />} />
-            <Route path="*" element={<OopsPage />} />
+            <Route path="*" element={<Navigate to="/chat" replace />} />
           </Routes>
         </CustomThemeProvider>
       </GlobalErrorBoundary>

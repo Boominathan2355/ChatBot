@@ -6,7 +6,7 @@ import api from '../services/api';
 import { GlassCard, GlassButton } from '../components';
 import ThemeToggle from '../components/ThemeToggle';
 import { ErrorBoundary } from 'react-error-boundary';
-import OopsPage from './OopsPage';
+// import OopsPage from './OopsPage';
 
 const SettingsPage: React.FC = () => {
     const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
@@ -96,13 +96,11 @@ const SettingsPage: React.FC = () => {
                 </Box>
 
                 <ErrorBoundary FallbackComponent={({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: () => void }) => (
-                    <OopsPage
-                        title="Settings Error"
-                        description={error.message || "Something went wrong in settings."}
-                        onReset={resetErrorBoundary}
-                        isError={true}
-                        sx={{ height: 'auto', minHeight: 400, pt: 4, pb: 4 }}
-                    />
+                    <Box sx={{ p: 4, textAlign: 'center', color: 'error.main' }}>
+                        <Typography variant="h6">Settings Error</Typography>
+                        <Typography sx={{ mb: 2 }}>{error.message || "Something went wrong."}</Typography>
+                        <GlassButton onClick={resetErrorBoundary}>Try Again</GlassButton>
+                    </Box>
                 )}>
                     <GlassCard sx={{ p: 4 }}>
                         <Typography variant="h6" gutterBottom>Ollama Configuration</Typography>
