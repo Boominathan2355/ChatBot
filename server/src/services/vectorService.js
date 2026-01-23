@@ -8,7 +8,8 @@ class VectorService {
         try {
             const settings = await UserSettings.findOne({ userId });
 
-            ollamaUrl = settings?.rag?.baseUrl || 'http://localhost:11434';
+            // FORCE LOCALHOST and correct model
+            ollamaUrl = 'http://localhost:11434';
             model = settings?.embeddingModel || 'nomic-embed-text';
 
             // Sanitize URL: Remove any trailing slashes or legacy endpoints if entered by mistake

@@ -1,0 +1,17 @@
+{
+  "query": "test_query_1769184449746",
+  "timestamp": "2026-01-23T16:07:29.751Z",
+  "type": "search_results",
+  "results": [
+    {
+      "title": "Test Result 1",
+      "url": "http://test1.com",
+      "description": "Desc 1"
+    },
+    {
+      "title": "Test Result 2",
+      "url": "http://test2.com",
+      "description": "Desc 2"
+    }
+  ]
+}

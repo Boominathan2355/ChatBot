@@ -3,6 +3,8 @@ const cheerio = require('cheerio');
 const fs = require('fs').promises;
 const path = require('path');
 const puppeteerService = require('./puppeteerService');
+const SearchLog = require('../models/SearchLog');
+const WebPage = require('../models/WebPage');
 
 /**
  * Web scraper service that extracts all types of data from web pages
@@ -311,6 +313,26 @@ class ScraperService {
         try {
             await fs.writeFile(filepath, JSON.stringify(storageData, null, 2), 'utf8');
             console.log(`💾 Saved search results: ${filename}`);
+
+            // Save to MongoDB
+            try {
+                await SearchLog.create({
+                    query,
+                    results: (results.web?.results || []).map(r => ({
+                        title: r.title,
+                        url: r.url,
+                        description: r.description,
+                        profile: r.profile,
+                        thumbnail: r.thumbnail?.src || r.thumbnail || r.img || ''
+                    })),
+                    provider: 'brave', // or derived from context if passed
+                    timestamp: new Date()
+                });
+                console.log('💾 Saved search results to MongoDB');
+            } catch (dbError) {
+                console.error('Failed to save search results to DB:', dbError.message);
+            }
+
             return filepath;
         } catch (error) {
             console.error('Failed to save search results:', error.message);
@@ -334,6 +356,19 @@ class ScraperService {
         try {
             await fs.writeFile(filepath, JSON.stringify(scrapedData, null, 2), 'utf8');
             console.log(`💾 Saved to: ${filename}`);
+
+            // Save to MongoDB
+            try {
+                await WebPage.findOneAndUpdate(
+                    { url: scrapedData.url },
+                    scrapedData,
+                    { upsert: true, new: true }
+                );
+                console.log('💾 Saved scraped data to MongoDB');
+            } catch (dbError) {
+                console.error('Failed to save scraped data to DB:', dbError.message);
+            }
+
             return filepath;
         } catch (error) {
             console.error('Failed to save scraped data:', error.message);
@@ -462,7 +497,8 @@ class ScraperService {
                         title: r.title,
                         url: r.url,
                         description: r.description,
-                        profile: r.profile
+                        profile: r.profile,
+                        thumbnail: r.thumbnail
                     }))
                 }
             };

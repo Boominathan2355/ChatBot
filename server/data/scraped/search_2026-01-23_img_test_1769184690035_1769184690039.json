@@ -1,0 +1,21 @@
+{
+  "query": "img_test_1769184690035",
+  "timestamp": "2026-01-23T16:11:30.039Z",
+  "type": "search_results",
+  "results": [
+    {
+      "title": "Image Test 1",
+      "url": "http://test1.com",
+      "description": "Desc 1",
+      "thumbnail": {
+        "src": "http://test1.com/thumb.jpg"
+      }
+    },
+    {
+      "title": "Image Test 2",
+      "url": "http://test2.com",
+      "description": "Desc 2",
+      "thumbnail": "http://test2.com/thumb2.jpg"
+    }
+  ]
+}
