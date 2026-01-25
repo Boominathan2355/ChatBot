@@ -118,19 +118,35 @@ export const selectChat = createAsyncThunk(
 
 // Manual thunk for sending message with streaming to avoid serializable issues with Response objects
 // and to handle fine-grained dispatching
-export const sendMessage = (
-    input: string,
-    imageObject: any,
-    fileObject: any,
-    currentChatId: string,
-    currentChat: Chat | null,
-    webSearchEnabled: boolean,
-    aiProvider: string,
-    currentModel: string,
-    thinkingEnabled: boolean
-) => async (dispatch: any, _getState: any) => {
+export const sendMessage = ({
+    input,
+    imageObject,
+    fileObject,
+    currentChatId,
+    currentChat,
+    webSearchEnabled,
+    ragEnabled,
+    aiProvider,
+    currentModel,
+    thinkingEnabled = true
+}: {
+    input: string;
+    imageObject: any;
+    fileObject: any;
+    currentChatId: string;
+    currentChat: Chat | null;
+    webSearchEnabled: boolean;
+    ragEnabled: boolean;
+    aiProvider: string;
+    currentModel: string;
+    thinkingEnabled: boolean;
+}) => async (dispatch: any, _getState: any) => {
     dispatch(setLoading(true));
     dispatch(setError(null));
+
+    console.log('[DEBUG] sendMessage Args:', {
+        input, webSearchEnabled, ragEnabled, aiProvider, currentModel, thinkingEnabled
+    });
 
     // Optimistic update
     const userMessage: Message = {
@@ -154,29 +170,30 @@ export const sendMessage = (
             ? `/api/chats/${currentChatId}/group-message`
             : `/api/chats/${currentChatId}/send`;
 
+        const fetchBody = {
+            content: input || (imageObject
+                ? 'Sent an image'
+                : fileObject ? `Uploaded something: ${fileObject.name}` : ''),
+            image: imageObject,
+            webSearch: webSearchEnabled,
+            useRag: ragEnabled,
+            documentId: fileObject?._id,
+            aiProvider: aiProvider || 'ollama',
+            model: currentModel,
+            thinkingEnabled: thinkingEnabled !== undefined ? thinkingEnabled : true,
+            tone: _getState().chat.chatSettings.tone,
+            mode: _getState().chat.chatSettings.mode
+        };
+
+        console.log('[DEBUG] chatSlice FETCH body:', fetchBody);
+
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${localStorage.getItem('token')}`
             },
-            body: JSON.stringify({
-                content: (() => {
-                    const { tone, mode } = _getState().chat.chatSettings;
-                    const systemPrefix = `[System: Respond in ${tone} tone and ${mode} mode] `;
-                    const userContent = input || (imageObject
-                        ? 'Sent an image'
-                        : fileObject ? `Uploaded something` : '');
-                    return `${systemPrefix}${userContent}`;
-                })(),
-                image: imageObject,
-                webSearch: webSearchEnabled,
-                useRag: false,
-                documentId: fileObject?._id,
-                aiProvider,
-                model: currentModel,
-                thinkingEnabled // New flag
-            })
+            body: JSON.stringify(fetchBody)
         });
 
         dispatch(setSearching(false));

@@ -1,0 +1,47 @@
+{
+  "query": "what is the biggest time wase",
+  "timestamp": "2026-01-23T17:07:54.387Z",
+  "type": "search_results",
+  "results": [
+    {
+      "title": "Top Time Wasters at Work and How to Avoid Them in 2026",
+      "url": "https://everhour.com/blog/time-wasters/",
+      "description": "Learn the most common time wasters in work and life, with practical tips to avoid distractions, reclaim your schedule, and boost productivity.",
+      "profile": {
+        "name": "everhour.com"
+      }
+    },
+    {
+      "title": "How to Avoid these 21 Massive Time Wasters and Accomplish More",
+      "url": "https://partnersinfire.com/lifestyle/time-wasters/",
+      "description": "Avoid these 21 huge time wasters to get more done and enjoy your life. It's time to stop wasting time and start thriving.",
+      "profile": {
+        "name": "partnersinfire.com"
+      }
+    },
+    {
+      "title": "12 Time Wasters That Suck Your Productivity While You Work",
+      "url": "https://www.lifehack.org/articles/productivity/top-20-time-wasters-and-top-5-worthwhile-activities.html",
+      "description": "We all lead busy lives, but there is a good chance that some of the things you do are a total waste of time. Here are the top 20 time wasters you can watch out for.",
+      "profile": {
+        "name": "www.lifehack.org"
+      }
+    },
+    {
+      "title": "17 Biggest Time Wasters at Work and How to Avoid Them",
+      "url": "https://www.growthtactics.net/biggest-time-wasters-at-work/",
+      "description": "Are you tired of wasting precious hours at work? Check out our comprehensive guide on the 17 biggest time wasters and learn practical strategies to avoid them.",
+      "profile": {
+        "name": "www.growthtactics.net"
+      }
+    },
+    {
+      "title": "12 Workplace Time Wasters and How To Eliminate Them",
+      "url": "https://www.wanywhere.com/blogs/workplace-time-wasters/",
+      "description": "Identify 12 common workplace time wasters and learn practical methods to eliminate distractions and work with sharper focus.",
+      "profile": {
+        "name": "www.wanywhere.com"
+      }
+    }
+  ]
+}

@@ -139,6 +139,9 @@ class AIService {
             }
         });
 
+        let thinkingStarted = false;
+        let thinkingEnded = false;
+
         return {
             stream: response.data,
             parser: (chunk) => {
@@ -147,11 +150,35 @@ class AIService {
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
                         const dataStr = line.replace('data: ', '').trim();
-                        if (dataStr === '[DONE]') continue;
+                        if (dataStr === '[DONE]') {
+                            // Ensure we close thinking if it was open
+                            if (thinkingStarted && !thinkingEnded) {
+                                thinkingEnded = true;
+                                results.push({ content: '</think>' });
+                            }
+                            continue;
+                        }
                         try {
                             const json = JSON.parse(dataStr);
-                            const content = json.choices?.[0]?.delta?.content;
+                            const delta = json.choices?.[0]?.delta;
+                            const content = delta?.content;
+                            const reasoning = delta?.reasoning_content;
+
+                            // Handle start of reasoning
+                            if (reasoning && !thinkingStarted) {
+                                thinkingStarted = true;
+                                results.push({ content: '<think>\n' });
+                            }
+
+                            // Handle end of reasoning (switch to content)
+                            if (content && thinkingStarted && !thinkingEnded) {
+                                thinkingEnded = true;
+                                results.push({ content: '\n</think>\n' });
+                            }
+
+                            if (reasoning) results.push({ content: reasoning });
                             if (content) results.push({ content });
+
                         } catch (e) { }
                     }
                 }

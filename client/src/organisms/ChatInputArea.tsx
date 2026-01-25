@@ -10,8 +10,10 @@ import SendIcon from '@mui/icons-material/Send';
 import StopCircleIcon from '@mui/icons-material/StopCircle';
 import LanguageIcon from '@mui/icons-material/Language';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import { AttachmentPreview } from '../molecules/AttachmentPreview';
 import { ModelSelectorTrigger, ModelSwitchMenu } from '../molecules/ModelSwitchMenu';
+import { ToneSelector, ModeSelector } from '../components/ChatConfigMenu';
 import type { ResolvedMode } from '../types';
 import { isDarkMode } from '../types';
 
@@ -27,6 +29,9 @@ interface ChatInputAreaProps {
     webSearchEnabled: boolean;
     onToggleWebSearch: () => void;
     isSearching: boolean;
+    // RAG toggle
+    ragEnabled: boolean;
+    onToggleRag: () => void;
     // Thinking mode
     thinkingEnabled: boolean;
     onToggleThinking: () => void;
@@ -60,6 +65,8 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     webSearchEnabled,
     onToggleWebSearch,
     isSearching,
+    ragEnabled,
+    onToggleRag,
     attachedFile,
     attachedFileUrl,
     onFileSelect,
@@ -157,8 +164,26 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         </IconButton>
                     </Tooltip>
 
+                    {/* RAG / Docs Toggle */}
+                    <Tooltip title={ragEnabled ? 'Knowledge Base ON' : 'Knowledge Base OFF'}>
+                        <IconButton
+                            onClick={onToggleRag}
+                            size="small"
+                            sx={{
+                                bgcolor: ragEnabled
+                                    ? (isDarkMode(resolvedMode)
+                                        ? 'rgba(255,255,255,0.1)'
+                                        : 'rgba(0,0,0,0.08)')
+                                    : 'transparent',
+                                color: ragEnabled ? 'primary.main' : 'inherit'
+                            }}
+                        >
+                            <LibraryBooksIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                    </Tooltip>
+
                     {/* Thinking Mode Toggle */}
-                    <Tooltip title={thinkingEnabled ? 'Thinking Enabled' : 'Thinking Disabled'}>
+                    <Tooltip title={thinkingEnabled ? 'Thinking ON' : 'Thinking OFF'}>
                         <IconButton
                             onClick={onToggleThinking}
                             size="small"
@@ -186,6 +211,10 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             </Box>
                         </IconButton>
                     </Tooltip>
+
+                    {/* Tone & Mode Selectors */}
+                    <ToneSelector resolvedMode={resolvedMode} />
+                    <ModeSelector resolvedMode={resolvedMode} />
 
                     {/* File Input */}
                     <input

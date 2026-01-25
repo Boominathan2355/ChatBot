@@ -94,7 +94,8 @@ exports.getChatMessages = async (req, res) => {
 };
 
 exports.sendMessage = async (req, res) => {
-    const { content, webSearch, image, aiProvider, model, useRag } = req.body;
+    console.log('[DEBUG] Request Body Keys:', Object.keys(req.body));
+    const { content, webSearch, image, aiProvider, model, useRag, tone, mode, thinkingEnabled = true } = req.body;
     const chatId = req.params.id;
 
     try {
@@ -110,6 +111,30 @@ exports.sendMessage = async (req, res) => {
             settings[settings.aiProvider].model = model;
         }
         const histSize = settings.historyWindowSize || 20;
+
+        // DEBUG: Test Thinking UI
+        if (content.trim() === '/test-think') {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+
+            const chunks = [
+                { content: '<think>' },
+                { content: 'This is a simulated thought process.\n' },
+                { content: 'Checking system parameters...\n' },
+                { content: 'Verifying UI rendering...\n' },
+                { content: '</think>' },
+                { content: 'The Thinking UI is working correctly if you see the thought block above.' }
+            ];
+
+            for (const chunk of chunks) {
+                res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+                await new Promise(r => setTimeout(r, 100)); // Simulate delay
+            }
+            res.write('data: [DONE]\n\n');
+            res.end();
+            return;
+        }
 
         // --- AGENTIC ROUTER START ---
         // 1. Analyze Intent & Decide Tools
@@ -264,6 +289,11 @@ If no, reply: NO
         // Consolidate System Message
         let unifiedSystemMessage = settings.systemInstructions || 'You are Jarvis, a helpful AI assistant.';
 
+        // Add Tone/Mode instructions if provided
+        if (tone && mode) {
+            unifiedSystemMessage += `\n\n[RESPONSE STYLE]\nTone: ${tone}\nMode: ${mode}\nINSTRUCTION: Adapt your response accordingly.`;
+        }
+
         // Add system timestamp
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
@@ -273,6 +303,13 @@ If no, reply: NO
         unifiedSystemMessage += `\n\n[SYSTEM CONTEXT]\nCurrent Date: ${dateStr}\nCurrent Time: ${timeStr}\nTimezone: ${timezone}`;
 
         if (settings.country) unifiedSystemMessage += `\nUser Location: ${settings.country}`;
+
+        console.log('[DEBUG] Thinking Enabled:', thinkingEnabled); // Debug log
+
+        // Add Thinking Mode instruction if enabled
+        if (thinkingEnabled) {
+            unifiedSystemMessage += `\n\n[SYSTEM MODE: THINKING ENABLED]\n⚠️ CRITICAL INSTRUCTION ⚠️\nYou are in THINKING MODE. You MUST start your response with a thinking block.\n\nFORMAT:\n<think>\n[Plan and reason step-by-step here. Be detailed.]\n</think>\n[Your final response]\n\nDO NOT output the answer directly. You MUST output <think>...</think> first. This is a STRICT requirement.`;
+        }
 
         // Inject Tool Contexts
         if (memoryContext) {
@@ -318,22 +355,8 @@ If no, reply: NO
             const results = parser(chunk);
             for (const resObj of results) {
                 if (resObj.content) {
-                    let text = resObj.content;
-                    // Filter thinking
-                    if (isThinking) {
-                        if (text.includes('</think>')) {
-                            isThinking = false;
-                            text = text.split('</think>')[1] || '';
-                        } else text = '';
-                    } else if (text.includes('<think>')) {
-                        isThinking = true;
-                        if (text.includes('</think>')) {
-                            isThinking = false;
-                            const parts = text.split('</think>');
-                            text = text.replace(/<think>.*?<\/think>/s, '') || parts[1] || '';
-                        } else text = text.split('<think>')[0] || '';
-                    }
-
+                    const text = resObj.content;
+                    // Send raw content including <think> tags to frontend
                     if (text) {
                         assistantMessage += text;
                         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);

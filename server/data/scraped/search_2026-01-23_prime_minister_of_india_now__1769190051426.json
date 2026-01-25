@@ -1,0 +1,47 @@
+{
+  "query": "prime-minister of india now?",
+  "timestamp": "2026-01-23T17:40:51.426Z",
+  "type": "search_results",
+  "results": [
+    {
+      "title": "Know the PM | Prime Minister of India",
+      "url": "https://www.pmindia.gov.in/en/pms-profile/",
+      "description": "The Prime Minister has worked with speed and scale to realise the aim of Antyodaya, or ensuring last-mile delivery of schemes and services. Leading international agencies have noted that under the leadership of PM Narendra Modi, India has been eliminating poverty at record pace.",
+      "profile": {
+        "name": "www.pmindia.gov.in"
+      }
+    },
+    {
+      "title": "List of All Prime Ministers of India (1947-2025) - Jagran Josh",
+      "url": "https://www.jagranjosh.com/general-knowledge/list-of-all-prime-ministers-of-india-1473165149-1",
+      "description": "List of all Prime Ministers of India till 2025: Narendra Modi is the current and 14th Prime Minister of India who assumed office on 10 June 2024.",
+      "profile": {
+        "name": "www.jagranjosh.com"
+      }
+    },
+    {
+      "title": "Prime Minister of India - Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Prime_Minister_of_India",
+      "description": "India follows a parliamentary system in which the prime minister is the presiding head of the government and chief of the executive of the government. In such systems, the head of state, or, the head of state's official representative (i.e., the monarch, president, or governor-general) usually holds a purely ceremonial position and acts, on most matters, only on the advice of the prime ...",
+      "profile": {
+        "name": "en.wikipedia.org"
+      }
+    },
+    {
+      "title": "List of Prime Minister of India: 1947 to 2025 - FactoData",
+      "url": "https://factodata.com/list-of-prime-minister-of-india/",
+      "description": "Narendra Modi is the current Prime Minister of India in 2025, serving the nation for the past 11 years since 2014, full list....",
+      "profile": {
+        "name": "factodata.com"
+      }
+    },
+    {
+      "title": "Narendra Modi | NarendraModi.in Official Website of Prime Minister of ...",
+      "url": "https://www.narendramodi.in/",
+      "description": "PM Narendra Modi's latest speeches. Get details about live events, latest speeches and speech videos on the official website of Shri Narendra Modi, PM of India.",
+      "profile": {
+        "name": "www.narendramodi.in"
+      }
+    }
+  ]
+}

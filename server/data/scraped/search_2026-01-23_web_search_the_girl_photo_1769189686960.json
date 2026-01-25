@@ -1,0 +1,47 @@
+{
+  "query": "web search the girl photo",
+  "timestamp": "2026-01-23T17:34:46.960Z",
+  "type": "search_results",
+  "results": [
+    {
+      "title": "Google Images",
+      "url": "https://images.google.com/",
+      "description": "Google Images. The most comprehensive image search on the web.",
+      "profile": {
+        "name": "images.google.com"
+      }
+    },
+    {
+      "title": "Free Reverse Image Search - Find Sources & Similar Pictures | Pic Detective",
+      "url": "https://picdetective.com/",
+      "description": "Free reverse image search tool powered by AI. Find image sources, duplicates, and high-res versions across the web. Fast, private, no signup required.",
+      "profile": {
+        "name": "picdetective.com"
+      }
+    },
+    {
+      "title": "Image Search - Search by Image to Find Similar Photos Online",
+      "url": "https://www.image-search.org/",
+      "description": "Image search allows you to find the most relevant pictures online. With this reverse image search tool, you can search pictures by uploading directly or by using a keyword or however you want.",
+      "profile": {
+        "name": "www.image-search.org"
+      }
+    },
+    {
+      "title": "Recognize and identify girl in your image online - ImageRecognize.com",
+      "url": "https://imagerecognize.com/object/girl/",
+      "description": "Identify and recognize girl in your image or picture. Our image recognition tool uses AI and machine learning, and will also identify other objects besides girl found in your image.",
+      "profile": {
+        "name": "imagerecognize.com"
+      }
+    },
+    {
+      "title": "AI Face Search | Facial Recognition Search",
+      "url": "https://www.reversely.ai/face-search",
+      "description": "Find people instantly with Reversely's AI face search. Upload a photo to uncover similar faces and confirm identity matches with ease.",
+      "profile": {
+        "name": "www.reversely.ai"
+      }
+    }
+  ]
+}

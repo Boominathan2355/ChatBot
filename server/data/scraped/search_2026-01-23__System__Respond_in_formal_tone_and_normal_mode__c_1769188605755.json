@@ -1,0 +1,47 @@
+{
+  "query": "[System: Respond in formal tone and normal mode] check the recent news on Tamil Nadu 2026 JAN",
+  "timestamp": "2026-01-23T17:16:45.755Z",
+  "type": "search_results",
+  "results": [
+    {
+      "title": "PM Modi in Tamil Nadu Live Updates: NDA kicks off Tamil Nadu polls ...",
+      "url": "https://www.thehindubusinessline.com/news/prime-minister-narendra-modi-chennai-tamil-nadu-roadshow-live-updates-23-jan-2026/article70541338.ece",
+      "description": "PM Modi roadshow in Chennai, Tamil Nadu Highlights: Prime Minister Narendra Modi on Friday addressed a large gathering at Tamil Nadu's Maduranthakam, kicking off NDA's election campaign in the ...",
+      "profile": {
+        "name": "www.thehindubusinessline.com"
+      }
+    },
+    {
+      "title": "Tamil Nadu Assembly Election 2026 - India Today",
+      "url": "https://www.indiatoday.in/elections/assembly/tamil-nadu",
+      "description": "Tamil Nadu Election 2026: Find latest updates and election news on Tamil Nadu assembly elections. Get full coverage on Tamil Nadu election dates, candidates, polls, parties and results on India Today.",
+      "profile": {
+        "name": "www.indiatoday.in"
+      }
+    },
+    {
+      "title": "தமிழ்நாடு செய்திகள்| Today Tamil Nadu News in Tamil | Latest Tamilnadu ...",
+      "url": "https://www.dailythanthi.com/news/tamilnadu",
+      "description": "Tamilnadu News in tamil (தமிழக): Get real-time தமிழ் நாடு செய்திகள் updates and in-depth coverage of events and developments across Tamil Nadu in Thats Tamil.",
+      "profile": {
+        "name": "www.dailythanthi.com"
+      }
+    },
+    {
+      "title": "Top news of the day | January 23, 2026 - The Hindu",
+      "url": "https://www.thehindu.com/news/top-news-of-the-day-january-23-2026/article70542580.ece",
+      "description": "Top news of the day: PM Modi kickstarts NDA's campaign in Tamil Nadu; Rupee logs steepest weekly fall in 6 months, and more The major news headlines of the day and more.",
+      "profile": {
+        "name": "www.thehindu.com"
+      }
+    },
+    {
+      "title": "Tamil Nadu Assembly Elections 2026 News - Oneindia",
+      "url": "https://www.oneindia.com/topic/tamil-nadu-assembly-elections-2026",
+      "description": "Tamil Nadu Assembly Elections 2026: Get Tamil Nadu Assembly Elections 2026 latest news and headlines, top stories, live updates, speech highlights, special reports, articles, videos, photos and ...",
+      "profile": {
+        "name": "www.oneindia.com"
+      }
+    }
+  ]
+}

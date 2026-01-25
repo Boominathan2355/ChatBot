@@ -36,15 +36,16 @@ interface UseChatResult {
     attachedFileUrl: string | null;
     // Actions
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-    handleSend: (
-        input: string,
-        currentChatId: string,
-        currentChat: Chat | null,
-        webSearchEnabled: boolean,
-        aiProvider: string,
-        currentModel: string,
-        thinkingEnabled: boolean
-    ) => Promise<void>;
+    handleSend: (payload: {
+        input: string;
+        currentChatId: string;
+        currentChat: Chat | null;
+        webSearchEnabled: boolean;
+        ragEnabled: boolean;
+        aiProvider: string;
+        currentModel: string;
+        thinkingEnabled: boolean;
+    }) => Promise<void>;
     handleRegenerate: (
         index: number | undefined,
         currentChatId: string,
@@ -121,15 +122,32 @@ export function useChat(): UseChatResult {
     // Removed executeAIStep and handleAIError as they are handled in Thunks or locally
 
 
-    const handleSend = useCallback(async (
-        input: string,
-        currentChatId: string,
-        currentChat: Chat | null,
-        webSearchEnabled: boolean,
-        aiProvider: string,
-        currentModel: string,
-        thinkingEnabled: boolean
-    ) => {
+    const handleSend = useCallback(async ({
+        input,
+        currentChatId,
+        currentChat,
+        webSearchEnabled,
+        ragEnabled,
+        aiProvider,
+        currentModel,
+        thinkingEnabled = true
+    }: {
+        input: string;
+        currentChatId: string;
+        currentChat: Chat | null;
+        webSearchEnabled: boolean;
+        ragEnabled: boolean;
+        aiProvider: string;
+        currentModel: string;
+        thinkingEnabled?: boolean;
+    }) => {
+        console.log('[DEBUG] useChat handleSend payload:', {
+            input,
+            thinkingEnabled,
+            webSearchEnabled,
+            aiProvider,
+            currentModel
+        });
         if ((!input.trim() && !attachedFile) || isLoading || isUploading) return;
 
         let imageObject = null;
@@ -174,17 +192,18 @@ export function useChat(): UseChatResult {
 
             // Dispatch the thunk
             // Note: We need to cast dispatch to any because thunks are complex typing
-            await (dispatch as any)(sendMessage(
+            await (dispatch as any)(sendMessage({
                 input,
                 imageObject,
                 fileObject,
                 currentChatId,
                 currentChat,
                 webSearchEnabled,
+                ragEnabled,
                 aiProvider,
                 currentModel,
                 thinkingEnabled
-            ));
+            }));
 
         } catch (e: any) {
             console.error(e);

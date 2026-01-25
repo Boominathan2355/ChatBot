@@ -115,28 +115,27 @@ const MessageRenderer: React.FC<MessageRendererProps> = React.memo(({ content, r
     // Since we don't want to break existing usage, we'll try to extract "think" block first.
 
     // Handle both complete and incomplete (streaming) think blocks
-    const hasOpenTag = content.includes('<think>');
-    const hasCloseTag = content.includes('</think>');
+    // Use regex to capture case-insensitive <think> tags, allowing for attributes/spaces
+    const thinkRegex = /<think\s*>([\s\S]*?)(?:<\/think>|$)/i;
+    const match = content.match(thinkRegex);
+
+    // DEBUG: Check if we are receiving think tags
+    if (content.includes('<think')) {
+        console.log('[DEBUG] MessageRenderer found <think> tag. Match:', !!match);
+    }
+
+    // Check if we have an open tag (case insensitive)
+    const hasOpenTag = /<think/i.test(content);
+    // Check if we have a close tag (case insensitive)
+    const hasCloseTag = /<\/think>/i.test(content);
 
     let thoughtContent = null;
     let finalContent = content;
 
-    if (hasOpenTag) {
-        if (hasCloseTag) {
-            // Complete block
-            const match = content.match(/<think>([\s\S]*?)<\/think>/);
-            if (match) {
-                thoughtContent = match[1].trim();
-                finalContent = content.replace(/<think>[\s\S]*?<\/think>/, '').trim();
-            }
-        } else {
-            // Incomplete block (streaming)
-            const parts = content.split('<think>');
-            if (parts.length > 1) {
-                thoughtContent = parts[1].trim(); // Everything after <think> is thought
-                finalContent = parts[0].trim();   // Everything before <think> is final (usually empty)
-            }
-        }
+    if (match) {
+        thoughtContent = match[1].trim();
+        // Remove the think block from final content
+        finalContent = content.replace(thinkRegex, '').trim();
     }
 
     // Process content to wrap citations [1], [2], [Doc 1], etc.
@@ -238,10 +237,11 @@ const MessageRenderer: React.FC<MessageRendererProps> = React.memo(({ content, r
 
     return (
         <MarkdownContainer>
-            {thoughtContent && (
+            {thoughtContent !== null && (
                 <ThinkingBlock
                     content={thoughtContent}
                     resolvedMode={resolvedMode}
+                    isStreaming={hasOpenTag && !hasCloseTag}
                 />
             )}
             <ReactMarkdown

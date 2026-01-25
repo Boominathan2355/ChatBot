@@ -1,0 +1,47 @@
+{
+  "query": "[System: Respond in formal tone and normal mode] check the recent news on Tamil Nadu 2026 JAN",
+  "timestamp": "2026-01-23T17:22:08.735Z",
+  "type": "search_results",
+  "results": [
+    {
+      "title": "PM Modi in Tamil Nadu Live Updates: NDA kicks off Tamil Nadu polls ...",
+      "url": "https://www.thehindubusinessline.com/news/prime-minister-narendra-modi-chennai-tamil-nadu-roadshow-live-updates-23-jan-2026/article70541338.ece",
+      "description": "PM Modi roadshow in Chennai, Tamil Nadu Highlights: Prime Minister Narendra Modi on Friday addressed a large gathering at Tamil Nadu's Maduranthakam, kicking off NDA's election campaign in the ...",
+      "profile": {
+        "name": "www.thehindubusinessline.com"
+      }
+    },
+    {
+      "title": "தமிழ்நாடு செய்திகள்| Today Tamil Nadu News in Tamil | Latest Tamilnadu ...",
+      "url": "https://www.dailythanthi.com/news/tamilnadu",
+      "description": "Tamilnadu News in tamil (தமிழக): Get real-time தமிழ் நாடு செய்திகள் updates and in-depth coverage of events and developments across Tamil Nadu in Thats Tamil.",
+      "profile": {
+        "name": "www.dailythanthi.com"
+      }
+    },
+    {
+      "title": "Tamil Nadu Assembly Election 2026 - India Today",
+      "url": "https://www.indiatoday.in/elections/assembly/tamil-nadu",
+      "description": "Tamil Nadu Election 2026: Find latest updates and election news on Tamil Nadu assembly elections. Get full coverage on Tamil Nadu election dates, candidates, polls, parties and results on India Today.",
+      "profile": {
+        "name": "www.indiatoday.in"
+      }
+    },
+    {
+      "title": "'A New Beginning': TTV Dhinakaran's AMMK Rejoins NDA Ahead Of ... - News18",
+      "url": "https://www.news18.com/india/ttv-dhinakaran-ammk-rejoins-nda-tamil-nadu-assembly-election-2026-ws-l-9845735.html",
+      "description": "TTV Dhinakaran announced AMMK's return to the NDA, aiming to defeat DMK in Tamil Nadu ahead of the 2026 polls.",
+      "profile": {
+        "name": "www.news18.com"
+      }
+    },
+    {
+      "title": "Tamil Nadu elections 2026: Tamil Nadu elections latest news, TN ...",
+      "url": "https://economictimes.indiatimes.com/news/elections/assembly-elections/tamil-nadu",
+      "description": "Tamil Nadu elections 2026: Read Tamil Nadu elections latest news and updates. Tamil Nadu assembly elections voting dates, polling schedule, candidate list. Get updates on TN elections 2026 opinion polls, exit polls, results and more on The Economic Times.",
+      "profile": {
+        "name": "economictimes.indiatimes.com"
+      }
+    }
+  ]
+}

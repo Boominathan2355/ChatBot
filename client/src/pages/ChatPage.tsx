@@ -33,8 +33,7 @@ import { ChatContextMenu } from '../molecules';
 
 // Components
 import SettingsDialog from '../components/SettingsDialog';
-import { ChatConfigMenu } from '../components/ChatConfigMenu';
-import { ExportMenu } from '../components/ExportMenu';
+
 import { ErrorBoundary } from 'react-error-boundary';
 // import OopsPage from './OopsPage';
 
@@ -64,8 +63,9 @@ const ChatPage: React.FC = () => {
     const [editedContent, setEditedContent] = useState('');
 
     // Web search state
-    // Web search state
     const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+    // RAG / Docs state
+    const [ragEnabled, setRagEnabled] = useState(false);
 
     // Thinking mode state
     const [thinkingEnabled, setThinkingEnabled] = useState(true);
@@ -209,15 +209,16 @@ const ChatPage: React.FC = () => {
             ]);
 
             // Trigger regeneration
-            await chat.handleSend(
-                editedContent,
-                chatManagement.currentChatId,
-                chatManagement.currentChat,
+            await chat.handleSend({
+                input: editedContent,
+                currentChatId: chatManagement.currentChatId,
+                currentChat: chatManagement.currentChat,
                 webSearchEnabled,
+                ragEnabled,
                 aiProvider,
                 currentModel,
                 thinkingEnabled
-            );
+            });
         } catch (error) {
             console.error('Failed to save edited message:', error);
         }
@@ -236,17 +237,19 @@ const ChatPage: React.FC = () => {
 
         if (!activeChatId) return;
 
-        chat.handleSend(
+        console.log('[DEBUG] ChatPage sending:', { thinkingEnabled });
+        chat.handleSend({
             input,
-            activeChatId,
-            chatManagement.currentChat,
+            currentChatId: activeChatId,
+            currentChat: chatManagement.currentChat,
             webSearchEnabled,
+            ragEnabled,
             aiProvider,
             currentModel,
-            thinkingEnabled
-        );
+            thinkingEnabled: thinkingEnabled ?? true
+        });
         setInput('');
-    }, [input, chatManagement.currentChatId, chatManagement.currentChat, webSearchEnabled, aiProvider, currentModel, thinkingEnabled, chat.handleSend, chatManagement.createNewChat]);
+    }, [input, chatManagement.currentChatId, chatManagement.currentChat, webSearchEnabled, ragEnabled, aiProvider, currentModel, thinkingEnabled, chat.handleSend, chatManagement.createNewChat]);
 
     // Regenerate handler
     const handleRegenerate = useCallback((index: number) => {
@@ -378,8 +381,7 @@ const ChatPage: React.FC = () => {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <ChatConfigMenu resolvedMode={resolvedMode} />
-                        <ExportMenu resolvedMode={resolvedMode} />
+
 
                         <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24, alignSelf: 'center' }} />
 
@@ -464,6 +466,8 @@ const ChatPage: React.FC = () => {
                         isUploading={chat.isUploading}
                         webSearchEnabled={webSearchEnabled}
                         onToggleWebSearch={() => setWebSearchEnabled(!webSearchEnabled)}
+                        ragEnabled={ragEnabled}
+                        onToggleRag={() => setRagEnabled(!ragEnabled)}
                         isSearching={chat.isSearching}
                         thinkingEnabled={thinkingEnabled}
                         onToggleThinking={() => setThinkingEnabled(!thinkingEnabled)}

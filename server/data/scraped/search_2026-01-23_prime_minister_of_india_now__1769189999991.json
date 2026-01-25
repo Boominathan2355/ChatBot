@@ -1,0 +1,47 @@
+{
+  "query": "prime-minister of india now?",
+  "timestamp": "2026-01-23T17:39:59.991Z",
+  "type": "search_results",
+  "results": [
+    {
+      "title": "Prime Minister of India",
+      "url": "https://www.pmindia.gov.in/en/",
+      "description": "Former Prime Ministers PM's Profile Shri Narendra Modi was sworn-in as India's Prime Minister for the third time on 9th June 2024, following another decisive victory in the 2024 Parliamentary elections. This victory marked the third consecutive term for Shri Modi, further solidifying his leadership.",
+      "profile": {
+        "name": "www.pmindia.gov.in"
+      }
+    },
+    {
+      "title": "List of All Prime Ministers of India (1947-2025) - Jagran Josh",
+      "url": "https://www.jagranjosh.com/general-knowledge/list-of-all-prime-ministers-of-india-1473165149-1",
+      "description": "List of all Prime Ministers of India till 2025: Narendra Modi is the current and 14th Prime Minister of India who assumed office on 10 June 2024.",
+      "profile": {
+        "name": "www.jagranjosh.com"
+      }
+    },
+    {
+      "title": "Prime Minister of India - Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/Prime_Minister_of_India",
+      "description": "India follows a parliamentary system in which the prime minister is the presiding head of the government and chief of the executive of the government. In such systems, the head of state, or, the head of state's official representative (i.e., the monarch, president, or governor-general) usually holds a purely ceremonial position and acts, on most matters, only on the advice of the prime ...",
+      "profile": {
+        "name": "en.wikipedia.org"
+      }
+    },
+    {
+      "title": "List Of All Prime Ministers Of India (1947-2025)",
+      "url": "https://www.thedailyjagran.com/trending/list-of-all-prime-ministers-of-india-10251251",
+      "description": "Prime Ministers Of India: The history of India as an independent country since 1947 has been marked by the vision of its political leaders, especially the Prime Minister. The PM of India is also known as the Chief Executive of the Government of India. Every leader, from Jawaharlal Nehru to the now Narendra Modi, all these Prime Ministers of India have prominently contributed to the political ...",
+      "profile": {
+        "name": "www.thedailyjagran.com"
+      }
+    },
+    {
+      "title": "Prime Ministers of India, List from 1947-2026, Tenure",
+      "url": "https://vajiramandravi.com/current-affairs/prime-ministers-of-india/",
+      "description": "Explore the complete list of Prime Ministers of India from 1947 to 2026, featuring their tenures, key contributions, reforms, and historical milestones.",
+      "profile": {
+        "name": "vajiramandravi.com"
+      }
+    }
+  ]
+}
